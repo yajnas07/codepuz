@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>codepuz — logo assets</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 32px; background: #f6f7f9; color: #0f172a; }
+  h1 { font-weight: 600; font-size: 24px; margin: 0 0 4px; }
+  p.sub { color: #64748b; margin: 0 0 28px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 16px; font-weight: 600; margin: 0 0 14px; }
+  .preview { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; }
+  .preview .chip { border-radius: 12px; padding: 14px; display: inline-flex; }
+  .chip.light { background: #fff; border: 1px solid #e5e7eb; }
+  .chip.dark { background: #0f172a; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  button { font: inherit; font-size: 13px; padding: 7px 12px; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; cursor: pointer; color: #0f172a; }
+  button:hover { background: #f1f5f9; }
+  .note { color: #64748b; font-size: 13px; margin-top: 10px; line-height: 1.5; }
+  code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>codepuz — logo assets</h1>
+<p class="sub">Rendered live. Click any button to download a PNG at that size. All conversion happens in your browser.</p>
+
+<div class="card">
+  <h2>App icon / favicon</h2>
+  <div class="preview">
+    <span class="chip light" id="prev-icon"></span>
+    <span class="chip dark" id="prev-icon-d"></span>
+  </div>
+  <div class="btns">
+    <button data-svg="icon16" data-size="16" data-name="favicon-16.png">16px (simplified)</button>
+    <button data-svg="icon" data-size="32" data-name="favicon-32.png">32px</button>
+    <button data-svg="icon" data-size="48" data-name="favicon-48.png">48px</button>
+    <button data-svg="icon" data-size="180" data-name="apple-touch-icon-180.png">180px (apple-touch)</button>
+    <button data-svg="icon" data-size="192" data-name="icon-192.png">192px</button>
+    <button data-svg="icon" data-size="512" data-name="icon-512.png">512px</button>
+  </div>
+  <p class="note">Combine 16/32/48 into <code>favicon.ico</code> with a tool like realfavicongenerator.net, or use them directly.</p>
+</div>
+
+<div class="card">
+  <h2>YouTube channel avatar (circular-safe)</h2>
+  <div class="preview">
+    <span class="chip light" id="prev-avatar"></span>
+  </div>
+  <div class="btns">
+    <button data-svg="avatar" data-size="512" data-name="youtube-avatar-512.png">512px</button>
+    <button data-svg="avatar" data-size="800" data-name="youtube-avatar-800.png">800px</button>
+  </div>
+  <p class="note">Upload the 800px version to YouTube (it accepts PNG/JPG, not SVG).</p>
+</div>
+
+<div class="card">
+  <h2>Horizontal lockup — light background</h2>
+  <div class="preview">
+    <span class="chip light" id="prev-lockL"></span>
+  </div>
+  <div class="btns">
+    <button data-svg="lockLight" data-w="520" data-h="144" data-name="codepuz-lockup-light.png">520×144px</button>
+    <button data-svg="lockLight" data-w="1040" data-h="288" data-name="codepuz-lockup-light@2x.png">1040×288px (@2x)</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Horizontal lockup — dark background</h2>
+  <div class="preview">
+    <span class="chip dark" id="prev-lockD"></span>
+  </div>
+  <div class="btns">
+    <button data-svg="lockDark" data-w="520" data-h="144" data-name="codepuz-lockup-dark.png">520×144px</button>
+    <button data-svg="lockDark" data-w="1040" data-h="288" data-name="codepuz-lockup-dark@2x.png">1040×288px (@2x)</button>
+  </div>
+  <p class="note">Dark lockup exports with a transparent background — the text sits on your own dark surface.</p>
+</div>
+
+<script>
+const iconInner = `
+  <path d="M34 24 q-7 0 -7 9 v8 q0 9 -6 9 q6 0 6 9 v8 q0 9 7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M68 24 q7 0 7 9 v8 q0 9 6 9 q-6 0 -6 9 v8 q0 9 -7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="41" y="43" width="18" height="18" rx="4" fill="#fbbf24"/>
+  <circle cx="50" cy="40" r="5" fill="#fbbf24"/>`;
+
+const SVGS = {
+  icon: `<svg viewBox="0 0 100 100" width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" rx="22" fill="#0f172a"/>${iconInner}
+    <circle cx="60" cy="52" r="5" fill="#0f172a"/></svg>`,
+
+  icon16: `<svg viewBox="0 0 100 100" width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" rx="22" fill="#0f172a"/>
+    <path d="M34 24 q-7 0 -7 9 v8 q0 9 -6 9 q6 0 6 9 v8 q0 9 7 9" fill="none" stroke="#2dd4bf" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M68 24 q7 0 7 9 v8 q0 9 6 9 q-6 0 -6 9 v8 q0 9 -7 9" fill="none" stroke="#2dd4bf" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="41" y="43" width="18" height="18" rx="4" fill="#fbbf24"/>
+    <circle cx="50" cy="40" r="5" fill="#fbbf24"/></svg>`,
+
+  avatar: `<svg viewBox="0 0 100 100" width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#0f172a"/>
+    <g transform="translate(22,22) scale(0.56)">${iconInner}
+    <circle cx="60" cy="52" r="5" fill="#0f172a"/></g></svg>`,
+
+  lockLight: `<svg viewBox="0 0 260 72" width="260" height="72" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(0,6) scale(0.6)"><rect width="100" height="100" rx="22" fill="#0f172a"/>${iconInner}
+    <circle cx="60" cy="52" r="5" fill="#0f172a"/></g>
+    <text x="76" y="47" font-family="'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="32" font-weight="600" fill="#0f172a">code<tspan fill="#0d9488">puz</tspan></text></svg>`,
+
+  lockDark: `<svg viewBox="0 0 260 72" width="260" height="72" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(0,6) scale(0.6)"><rect width="100" height="100" rx="22" fill="#1e293b"/>
+    <path d="M34 24 q-7 0 -7 9 v8 q0 9 -6 9 q6 0 6 9 v8 q0 9 7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M68 24 q7 0 7 9 v8 q0 9 6 9 q-6 0 -6 9 v8 q0 9 -7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="41" y="43" width="18" height="18" rx="4" fill="#fbbf24"/><circle cx="50" cy="40" r="5" fill="#fbbf24"/>
+    <circle cx="60" cy="52" r="5" fill="#1e293b"/></g>
+    <text x="76" y="47" font-family="'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="32" font-weight="600" fill="#f8fafc">code<tspan fill="#2dd4bf">puz</tspan></text></svg>`
+};
+
+document.getElementById('prev-icon').innerHTML   = SVGS.icon.replace('width="100" height="100"','width="72" height="72"');
+document.getElementById('prev-icon-d').innerHTML = SVGS.icon.replace('width="100" height="100"','width="72" height="72"');
+document.getElementById('prev-avatar').innerHTML = SVGS.avatar.replace('width="100" height="100"','width="96" height="96"');
+document.getElementById('prev-lockL').innerHTML  = SVGS.lockLight.replace('width="260" height="72"','width="260" height="72"');
+document.getElementById('prev-lockD').innerHTML  = SVGS.lockDark.replace('width="260" height="72"','width="260" height="72"');
+
+function download(svgStr, w, h, name) {
+  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = function () {
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(function (png) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(png);
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }, 'image/png');
+  };
+  img.onerror = () => alert('Render failed — try a different browser.');
+  img.src = url;
+}
+
+document.querySelectorAll('button[data-svg]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const svg = SVGS[btn.dataset.svg];
+    const w = btn.dataset.size ? +btn.dataset.size : +btn.dataset.w;
+    const h = btn.dataset.size ? +btn.dataset.size : +btn.dataset.h;
+    download(svg, w, h, btn.dataset.name);
+  });
+});
+</script>
+</body>
+</html>
