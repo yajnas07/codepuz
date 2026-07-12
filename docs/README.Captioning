@@ -1,0 +1,43 @@
+Mac:
+Whisper (word timing) → ASS styling → ffmpeg burn-in. You already have ffmpeg; this adds whisper.cpp and Aegisub.
+
+1 · Install whisper.cpp and Aegisub
+
+brew install whisper-cpp
+brew install --cask aegisub
+No Homebrew? Install it first from brew.sh, then run the above.
+
+2 · Download the model
+
+curl -L -o ggml-base.en.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+Verify it's ~148 MB with ls -lh ggml-base.en.bin. If tiny, the network blocked it — use a browser.
+
+3 · Extract audio from your video
+
+ffmpeg -i input.mp4 -ar 16000 -ac 1 -c:a pcm_s16le audio.wav
+4 · Generate the word-level SRT
+
+whisper-cli -m ggml-base.en.bin -f audio.wav \
+  --max-len 12 -osrt -of captions_word
+--max-len 12 ≈ one–two words per caption. Use --max-len 1 for one word. Output: captions_word.srt
+
+5 · Convert to ASS
+
+ffmpeg -i captions_word.srt captions_word.ass
+6 · Style in Aegisub
+
+Open captions_word.ass → Subtitle → Styles Manager → edit Default: sans-serif font, size 64–72, white fill, black outline 3, alignment 2 or 5. Save. Confirm all lines use that style in the grid's Style column.
+
+7 · Add the pop animation
+
+Prepend this tag to each line's text (fade + scale-up from 55% to 100%):
+
+{\fad(60,60)\t(0,110,\fscx100\fscy100)\fscx55\fscy55}
+8 · Burn into the video
+
+ffmpeg -i input.mp4 -vf "ass=captions_word.ass" \
+  -c:v libx264 -crf 18 -preset medium -c:a copy output.mp4
+Fonts must be installed in Font Book, or ffmpeg falls back to a default. Result: output.mp4
+
+
