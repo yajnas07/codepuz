@@ -1,0 +1,83 @@
+diff --git a/logos/avatar.svg b/logos/avatar.svg
+new file mode 100644
+index 0000000..fa8188b
+--- /dev/null
++++ b/logos/avatar.svg
+@@ -0,0 +1,7 @@
++<svg viewBox="0 0 100 100" width="100" height="100" xmlns="http://www.w3.org/2000/svg">
++    <circle cx="50" cy="50" r="50" fill="#0f172a"/>
++    <g transform="translate(22,22) scale(0.56)">  <path d="M34 24 q-7 0 -7 9 v8 q0 9 -6 9 q6 0 6 9 v8 q0 9 7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++  <path d="M68 24 q7 0 7 9 v8 q0 9 6 9 q-6 0 -6 9 v8 q0 9 -7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++  <rect x="41" y="43" width="18" height="18" rx="4" fill="#fbbf24"/>
++  <circle cx="50" cy="40" r="5" fill="#fbbf24"/>
++    <circle cx="60" cy="52" r="5" fill="#0f172a"/></g></svg>
+\ No newline at end of file
+diff --git a/logos/icon.svg b/logos/icon.svg
+new file mode 100644
+index 0000000..666d907
+--- /dev/null
++++ b/logos/icon.svg
+@@ -0,0 +1,6 @@
++<svg viewBox="0 0 100 100" width="100" height="100" xmlns="http://www.w3.org/2000/svg">
++    <rect width="100" height="100" rx="22" fill="#0f172a"/> <path d="M34 24 q-7 0 -7 9 v8 q0 9 -6 9 q6 0 6 9 v8 q0 9 7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++  <path d="M68 24 q7 0 7 9 v8 q0 9 6 9 q-6 0 -6 9 v8 q0 9 -7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++  <rect x="41" y="43" width="18" height="18" rx="4" fill="#fbbf24"/>
++  <circle cx="50" cy="40" r="5" fill="#fbbf24"/>
++    <circle cx="60" cy="52" r="5" fill="#0f172a"/></svg>
+\ No newline at end of file
+diff --git a/logos/logo1.svg b/logos/logo1.svg
+new file mode 100644
+index 0000000..2b16516
+--- /dev/null
++++ b/logos/logo1.svg
+@@ -0,0 +1,8 @@
++<svg viewBox="0 0 260 72" width="260" height="72" xmlns="http://www.w3.org/2000/svg">
++<g transform="translate(0,6) scale(0.6)"><rect width="100" height="100" rx="22" fill="#1e293b"/>
++<path d="M34 24 q-7 0 -7 9 v8 q0 9 -6 9 q6 0 6 9 v8 q0 9 7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++<path d="M68 24 q7 0 7 9 v8 q0 9 6 9 q-6 0 -6 9 v8 q0 9 -7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++<rect x="41" y="43" width="18" height="18" rx="4" fill="#fbbf24"/><circle cx="50" cy="40" r="5" fill="#fbbf24"/>
++<circle cx="60" cy="52" r="5" fill="#1e293b"/></g>
++<text x="76" y="47" font-family="\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif" font-size="32" font-weight="600" fill="#f8fafc">code<tspan fill="#2dd4bf">puz</tspan></text>
++</svg>
+\ No newline at end of file
+diff --git a/logos/logo2.svg b/logos/logo2.svg
+new file mode 100644
+index 0000000..a56b00f
+--- /dev/null
++++ b/logos/logo2.svg
+@@ -0,0 +1,6 @@
++<svg viewBox="0 0 100 100" width="100" height="100" xmlns="http://www.w3.org/2000/svg">
++    <rect width="100" height="100" rx="22" fill="#0f172a"/>
++    <path d="M34 24 q-7 0 -7 9 v8 q0 9 -6 9 q6 0 6 9 v8 q0 9 7 9" fill="none" stroke="#2dd4bf" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
++    <path d="M68 24 q7 0 7 9 v8 q0 9 6 9 q-6 0 -6 9 v8 q0 9 -7 9" fill="none" stroke="#2dd4bf" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
++    <rect x="41" y="43" width="18" height="18" rx="4" fill="#fbbf24"/>
++    <circle cx="50" cy="40" r="5" fill="#fbbf24"/></svg>
+\ No newline at end of file
+diff --git a/logos/logo_dark.svg b/logos/logo_dark.svg
+new file mode 100644
+index 0000000..aa66584
+--- /dev/null
++++ b/logos/logo_dark.svg
+@@ -0,0 +1,7 @@
++<svg viewBox="0 0 260 72" width="260" height="72" xmlns="http://www.w3.org/2000/svg">
++    <g transform="translate(0,6) scale(0.6)"><rect width="100" height="100" rx="22" fill="#1e293b"/>
++    <path d="M34 24 q-7 0 -7 9 v8 q0 9 -6 9 q6 0 6 9 v8 q0 9 7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++    <path d="M68 24 q7 0 7 9 v8 q0 9 6 9 q-6 0 -6 9 v8 q0 9 -7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++    <rect x="41" y="43" width="18" height="18" rx="4" fill="#fbbf24"/><circle cx="50" cy="40" r="5" fill="#fbbf24"/>
++    <circle cx="60" cy="52" r="5" fill="#1e293b"/></g>
++    <text x="76" y="47" font-family="'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="32" font-weight="600" fill="#f8fafc">code<tspan fill="#2dd4bf">puz</tspan></text></svg>
+\ No newline at end of file
+diff --git a/logos/logo_light.svg b/logos/logo_light.svg
+new file mode 100644
+index 0000000..4c7d411
+--- /dev/null
++++ b/logos/logo_light.svg
+@@ -0,0 +1,7 @@
++<svg viewBox="0 0 260 72" width="260" height="72" xmlns="http://www.w3.org/2000/svg">
++    <g transform="translate(0,6) scale(0.6)"><rect width="100" height="100" rx="22" fill="#0f172a"/><path d="M34 24 q-7 0 -7 9 v8 q0 9 -6 9 q6 0 6 9 v8 q0 9 7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++  <path d="M68 24 q7 0 7 9 v8 q0 9 6 9 q-6 0 -6 9 v8 q0 9 -7 9" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
++  <rect x="41" y="43" width="18" height="18" rx="4" fill="#fbbf24"/>
++  <circle cx="50" cy="40" r="5" fill="#fbbf24"/>
++    <circle cx="60" cy="52" r="5" fill="#0f172a"/></g>
++    <text x="76" y="47" font-family="'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="32" font-weight="600" fill="#0f172a">code<tspan fill="#0d9488">puz</tspan></text></svg>
+\ No newline at end of file
