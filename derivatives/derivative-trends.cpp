@@ -55,9 +55,7 @@ struct TrendResult {
 // d2[n]  = (d1[n] - d1[n-1]) / dt      -- forward difference of d1, 2nd deriv
 //
 // This is deliberately kept simple: the point of the post is the concept, not
-// production-grade numerical methods. For real signal processing you would use
-// a Savitzky-Golay filter or similar; see the closing note in the post.
-
+// production-grade numerical methods. 
 class DerivativeStream {
 public:
     explicit DerivativeStream(double accel_threshold = 0.01)
