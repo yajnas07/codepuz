@@ -6,3 +6,7 @@ run: build
 
 clean:
 	rm derivative_trend
+
+saveImage:
+	python3 -c "import cairosvg; cairosvg.svg2png(url='cover.svg', write_to='cover.png', output_width=1360, output_height=850)"
+	python3 -c "import cairosvg; cairosvg.svg2png(url='cover.svg', write_to='cover.png', output_width=1360, output_height=850)"
