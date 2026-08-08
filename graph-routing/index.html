@@ -143,7 +143,63 @@
 
   <h1>Why Can't Mermaid Draw My Diagram Without Crossing Arrows?</h1>
   <p class="cpz-subtitle">The Sugiyama Framework and its VLSI cousin</p>
+<svg width="1200" height="628" viewBox="0 0 1200 628" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>How Diagram Tools Untangle Arrows</title>
+<rect x="0" y="0" width="1200" height="628" fill="#0A1220"/>
+<defs>
+<marker id="cov_coral" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#E8735A" stroke-width="1.6" stroke-linecap="round"/></marker>
+<marker id="cov_teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#43E6C8" stroke-width="1.6" stroke-linecap="round"/></marker>
+</defs>
 
+<text x="600" y="108" text-anchor="middle" fill="#E8EDF5" font-family="Montserrat,'Segoe UI',sans-serif" font-size="52" font-weight="700">How Diagram Tools Untangle Arrows</text>
+<text x="600" y="156" text-anchor="middle" fill="#8896B0" font-family="Montserrat,'Segoe UI',sans-serif" font-size="22">The Sugiyama Framework and its VLSI cousin</text>
+
+<line x1="600" y1="210" x2="600" y2="558" stroke="#D8A44E" stroke-width="2" stroke-dasharray="6 6" opacity="0.7"/>
+<text x="300" y="248" text-anchor="middle" fill="#E8735A" font-family="Montserrat,sans-serif" font-size="18" font-weight="600" letter-spacing="1">BEFORE</text>
+<text x="900" y="248" text-anchor="middle" fill="#43E6C8" font-family="Montserrat,sans-serif" font-size="18" font-weight="600" letter-spacing="1">AFTER</text>
+
+<g stroke="#E8735A" stroke-width="2" fill="none" marker-end="url(#cov_coral)">
+<line x1="130" y1="310" x2="360" y2="490"/>
+<line x1="130" y1="310" x2="250" y2="340"/>
+<line x1="130" y1="480" x2="250" y2="340"/>
+<line x1="130" y1="480" x2="360" y2="340"/>
+<line x1="250" y1="340" x2="470" y2="410"/>
+<line x1="360" y1="490" x2="470" y2="410"/>
+<line x1="360" y1="340" x2="470" y2="410"/>
+</g>
+<g>
+<circle cx="130" cy="310" r="25" fill="#0A1220" stroke="#E8735A" stroke-width="2"/>
+<circle cx="130" cy="480" r="25" fill="#0A1220" stroke="#E8735A" stroke-width="2"/>
+<circle cx="250" cy="340" r="25" fill="#0A1220" stroke="#E8735A" stroke-width="2"/>
+<circle cx="360" cy="340" r="25" fill="#0A1220" stroke="#E8735A" stroke-width="2"/>
+<circle cx="360" cy="490" r="25" fill="#0A1220" stroke="#E8735A" stroke-width="2"/>
+<circle cx="470" cy="410" r="25" fill="#0A1220" stroke="#E8735A" stroke-width="2"/>
+</g>
+<circle cx="243" cy="415" r="6" fill="#D8A44E"/>
+<circle cx="300" cy="362" r="6" fill="#D8A44E"/>
+<circle cx="404" cy="388" r="6" fill="#D8A44E"/>
+<circle cx="330" cy="415" r="6" fill="#D8A44E"/>
+
+<g stroke="#43E6C8" stroke-width="2" fill="none" marker-end="url(#cov_teal)">
+<line x1="690" y1="330" x2="850" y2="310"/>
+<line x1="690" y1="330" x2="850" y2="410"/>
+<line x1="690" y1="480" x2="850" y2="410"/>
+<line x1="690" y1="480" x2="850" y2="510"/>
+<line x1="850" y1="310" x2="1030" y2="410"/>
+<line x1="850" y1="410" x2="1030" y2="410"/>
+<line x1="850" y1="510" x2="1030" y2="410"/>
+</g>
+<g>
+<circle cx="690" cy="330" r="25" fill="#0A1220" stroke="#43E6C8" stroke-width="2"/>
+<circle cx="690" cy="480" r="25" fill="#0A1220" stroke="#43E6C8" stroke-width="2"/>
+<circle cx="850" cy="310" r="25" fill="#0A1220" stroke="#43E6C8" stroke-width="2"/>
+<circle cx="850" cy="410" r="25" fill="#0A1220" stroke="#43E6C8" stroke-width="2"/>
+<circle cx="850" cy="510" r="25" fill="#0A1220" stroke="#43E6C8" stroke-width="2"/>
+<circle cx="1030" cy="410" r="25" fill="#0A1220" stroke="#43E6C8" stroke-width="2"/>
+</g>
+
+<text x="600" y="600" text-anchor="middle" fill="#8896B0" font-family="Montserrat,monospace" font-size="18" letter-spacing="1">codepuz.com</text>
+</svg>
   <!-- ==================== SECTION 1 ==================== -->
 <section data-section="hook">
     <p>One afternoon, while working through a straightforward CPU subsystem consisting of a CPU, GIC, interconnect, and several peripherals including UART, memory, and Ethernet, I decided to generate a datasheet showing the platform's interfaces and connectivity.The SystemC description was remarkably clear. The structure flowed naturally, and anyone reading the platform configuration could understand the architecture almost instantly.</p>
@@ -165,11 +221,15 @@
 
     <p>Now draw it. If you drop the six nodes at more or less arbitrary positions and connect them with straight lines, you get a knot: several of those seven edges cross one another, and the picture tells you almost nothing about the structure. So here is the puzzle. Is there an arrangement of these six nodes that produces zero crossings? Sit with it for a second before scrolling. For a graph this small the answer feels like it should be easy to find by eye, and that intuition is exactly the thing this post is going to complicate.</p>
 
-    <div class="cpz-slot" data-component="animation1" data-file="animation1_naive_vs_optimal.py">
-      <span class="cpz-slot-label">[ ANIMATION 1: Naive Layout vs Optimal Layout ]
-        <small>~25s Manim teaser, ends on "How?" — placeholder</small>
-      </span>
-    </div>
+    <div style="position:relative;width:100%;max-width:680px;margin:24px auto;aspect-ratio:16/9;">
+  <iframe
+    src="https://www.youtube.com/embed/mbnmbw5CkCU"
+    title="The Naive Layout vs The Optimal Layout"
+    style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:8px;"
+    allow="accelerator; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen>
+  </iframe>
+</div>
   </section>
 
   <!-- ==================== SECTION 3 ==================== -->
@@ -852,11 +912,16 @@
 
     <p>Neither step promises the true minimum, and neither needs to. Alternating barycenter sweeps with transpose passes converges quickly in practice, typically within a few dozen iterations even on real-world graphs, and lands on a layout that is almost always good enough to read. When it does not quite reach zero, that is not a bug. It is the visible edge of an NP-hard problem, and the tool declining to spend the rest of the afternoon chasing an arrangement that may not exist.</p>
 
-    <div class="cpz-slot" data-component="animation2" data-file="animation2_barycenter.py">
-      <span class="cpz-slot-label">[ ANIMATION 2: The Barycenter Sweep ]
-        <small>~35s Manim, spring metaphor, live crossing count — placeholder</small>
-      </span>
-    </div>
+ <div style="position:relative;width:100%;max-width:680px;margin:24px auto;aspect-ratio:16/9;">
+  <iframe
+    src=https://www.youtube.com/embed/BK6ZWwVmw3k
+    title="The Barycenter Sweep"
+    style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:8px;"
+    allow="accelerator; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen>
+  </iframe>
+</div>
+
 
     <div class="cpz-callout" data-component="callout-inversions">
       <span class="cpz-callout-tag">A connection worth pausing on</span>
