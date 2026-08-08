@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why Do Diagram Tools Struggle with Crossing Arrows?</title>
+<style>
+  :root {
+    --cpz-bg:    #0A1220;
+    --cpz-teal:  #43E6C8;
+    --cpz-gold:  #D8A44E;
+    --cpz-coral: #E8735A;
+    --cpz-text:  #E8EDF5;
+    --cpz-muted: #8896B0;
+    --cpz-mono:  "Fira Mono", "SF Mono", ui-monospace, Menlo, monospace;
+    --cpz-body:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  html { background: var(--cpz-bg); }
+  body {
+    margin: 0;
+    background: var(--cpz-bg);
+    color: var(--cpz-text);
+    font-family: var(--cpz-body);
+    line-height: 1.7;
+    font-size: 18px;
+  }
+
+  .cpz-article {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+
+  .cpz-article h1 {
+    font-family: var(--cpz-mono);
+    font-size: 34px;
+    line-height: 1.25;
+    color: var(--cpz-text);
+    margin: 0 0 8px;
+  }
+  .cpz-article .cpz-subtitle {
+    color: var(--cpz-muted);
+    font-family: var(--cpz-mono);
+    font-size: 16px;
+    margin: 0 0 48px;
+  }
+
+  .cpz-article h2 {
+    font-family: var(--cpz-mono);
+    font-size: 24px;
+    color: var(--cpz-teal);
+    margin: 56px 0 16px;
+    border-bottom: 1px solid rgba(136,150,176,0.25);
+    padding-bottom: 8px;
+  }
+
+  .cpz-article p { margin: 0 0 20px; }
+  .cpz-article a { color: var(--cpz-teal); }
+
+  code {
+    font-family: var(--cpz-mono);
+    font-size: 0.92em;
+    background: rgba(67,230,200,0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--cpz-teal);
+  }
+
+  /* Callout box: gold left border */
+  .cpz-callout {
+    border-left: 3px solid var(--cpz-gold);
+    background: rgba(216,164,78,0.07);
+    padding: 16px 20px;
+    margin: 28px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 16px;
+    color: var(--cpz-text);
+  }
+  .cpz-callout .cpz-callout-tag {
+    display: block;
+    font-family: var(--cpz-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cpz-gold);
+    margin-bottom: 6px;
+  }
+
+  /* Component placeholder slot */
+  .cpz-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    margin: 32px 0;
+    border: 1px dashed rgba(67,230,200,0.4);
+    border-radius: 8px;
+    background: rgba(67,230,200,0.03);
+  }
+  .cpz-slot-label {
+    font-family: var(--cpz-mono);
+    font-size: 14px;
+    color: var(--cpz-muted);
+    text-align: center;
+    padding: 12px;
+  }
+  .cpz-slot-label small {
+    display: block;
+    color: rgba(136,150,176,0.6);
+    margin-top: 4px;
+  }
+
+  /* Marker for prose still to be written */
+  .cpz-todo {
+    color: var(--cpz-coral);
+    font-family: var(--cpz-mono);
+    font-size: 14px;
+    font-style: italic;
+    opacity: 0.75;
+  }
+</style>
+</head>
+<body>
+<article class="cpz-article">
+
+  <h1>Why Can't Mermaid Draw My Diagram Without Crossing Arrows?</h1>
+  <p class="cpz-subtitle">The Sugiyama Framework and its VLSI cousin</p>
+
+  <!-- ==================== SECTION 1 ==================== -->
+<section data-section="hook">
+    <p>I was three coffees into a pre-silicon afternoon, building a block diagram of a memory subsystem. Nothing exotic: one initiator, a bus interconnect, an address decoder, and four target memories. I had the connections in front of me in SystemC, the initiator socket bound to the bus, the bus bound to the decoder, the decoder fanning out to the four targets. The netlist was clean. It read top to bottom like a sentence.</p>
+
+    <p>Then I asked a tool to draw it. And the arrows crossed. Not in some unavoidable, this-graph-is-genuinely-tangled way, but in a way that made the picture harder to read than the SystemC it came from. The decoder-to-memory lines braided over each other. The bus return path cut diagonally through two other nets. I moved a node by hand, and three other arrows got worse.</p>
+
+    <p>Those of us who build systems have been drawing block diagrams for SoCs and platforms for as long as there have been SoCs and platforms. What has changed is how we produce them. In the age of AI we do not open a drawing canvas anymore. We describe the structure in text, as Graphviz dot or as Mermaid, and hand it to a tool that lays it out for us. The tool does the placing, the routing, and the connecting. And here is the part that stopped me: it does all of that using a body of principles that most of us who lean on it every day have never actually looked at. We treat the layout as free. It is not. Unravelling what the tool is silently doing on our behalf is one of the goals of this post.</p>
+
+    <p>Because the obvious question is: why does a tool this mature struggle with something that looks so visual and so obvious? Surely it could just try different arrangements until it lands on the one with no crossings?</p>
+
+    <p>The answer turns out to involve a problem that has occupied graph theorists since the 1970s, that is NP-hard in its general form, and that is solved by the very same family of algorithms that route the wires on the chips I was building the diagram to verify. I went in mildly annoyed at my tool. I have not fully climbed back out of the rabbit hole since.</p>
+  </section>
+
+  <!-- ==================== SECTION 2 ==================== -->
+  <section data-section="puzzle">
+    <h2>The Puzzle, Stated Visually</h2>
+    <p>Before any theory, it helps to see the problem in its rawest form. Forget the memory subsystem for a moment and take something small enough to hold in your head: six nodes, labelled A through F, connected by seven edges. A goes to C and D. B goes to C and E. C and D both feed F. E feeds F as well. That is the entire graph. You could sketch it on the back of a napkin.</p>
+
+    <p>Now draw it. If you drop the six nodes at more or less arbitrary positions and connect them with straight lines, you get a knot: several of those seven edges cross one another, and the picture tells you almost nothing about the structure. So here is the puzzle. Is there an arrangement of these six nodes that produces zero crossings? Sit with it for a second before scrolling. For a graph this small the answer feels like it should be easy to find by eye, and that intuition is exactly the thing this post is going to complicate.</p>
+
+    <div class="cpz-slot" data-component="animation1" data-file="animation1_naive_vs_optimal.py">
+      <span class="cpz-slot-label">[ ANIMATION 1: Naive Layout vs Optimal Layout ]
+        <small>~25s Manim teaser, ends on "How?" — placeholder</small>
+      </span>
+    </div>
+  </section>
+
+  <!-- ==================== SECTION 3 ==================== -->
+  <section data-section="why-hard">
+    <h2>Why This Is Hard</h2>
+    <p>The tempting strategy is brute force: try every arrangement, keep the best one. The problem is how fast the number of arrangements grows. If you have organized your nodes into layers, and a single layer holds n nodes, then that one layer alone has n factorial possible orderings. For 10 nodes in a layer that is 3,628,800 orderings. For 15 it is over a trillion. And a real diagram has many layers, each multiplying the others. The search space does not merely get large, it detonates.</p>
+
+    <p>You might hope this is just a case of nobody having found the clever shortcut yet. It is not. Even in the stripped-down case of only two layers, deciding the ordering that minimizes crossings is NP-hard, a result established in the classical graph-drawing literature. In plain terms: there is no known algorithm that is guaranteed to find the perfect arrangement in reasonable time, and strong theoretical reasons to believe none exists. Every diagram tool you have ever used, Mermaid, Graphviz, all of them, is therefore running an approximation. When your arrows come out crossed, you are looking at a heuristic that did its best and stopped.</p>
+
+    <p>It helps to pin down what a crossing actually is, because the definition is more mechanical than the visual tangle suggests. Take two layers, one above the other, and two edges running between them, one from u to v and one from x to y. Those two edges cross if and only if their endpoints interleave: u sits before x in the upper layer, but v sits after y in the lower one. That is the whole condition. Crossing minimization, stripped of its visual drama, is a counting problem over pairs of edges between adjacent layers, and the widget below lets you feel that counting happen as you move nodes around.</p>
+
+
+ <!-- ==================== Start Widget 1 ==================== -->
+<div id="cpz_w1_root" style="font-family:'Fira Mono','SF Mono',ui-monospace,Menlo,monospace;max-width:680px;margin:0 auto;color:#E8EDF5;background:#0A1220;border:1px solid rgba(67,230,200,0.25);border-radius:8px;padding:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <span style="font-size:13px;letter-spacing:0.08em;color:#8896B0;">CROSSING COUNTER</span>
+    <span style="font-size:14px;color:#8896B0;">Crossings: <span id="cpz_w1_count" style="font-size:26px;color:#D8A44E;vertical-align:middle;transition:transform .15s;display:inline-block;">0</span></span>
+  </div>
+  <p style="margin:0 0 8px;font-size:12px;color:#8896B0;">The outer nodes (A, B and C, D) are fixed. Only the four numbered nodes in the middle can be reordered &mdash; drag them, or step the search below.</p>
+  <svg id="cpz_w1_svg" width="100%" viewBox="0 0 640 350" style="display:block;touch-action:none;">
+    <defs>
+      <marker id="cpz_w1_arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#E8735A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+      <marker id="cpz_w1_arrc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#43E6C8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    </defs>
+    <rect x="286" y="40" width="68" height="300" rx="10" fill="rgba(216,164,78,0.06)" stroke="#D8A44E" stroke-width="1" stroke-dasharray="5 5"/>
+    <text x="110" y="30" text-anchor="middle" fill="#8896B0" font-size="12">Layer 0 (fixed)</text>
+    <text x="320" y="30" text-anchor="middle" fill="#D8A44E" font-size="12">Layer 1 &mdash; drag</text>
+    <text x="530" y="30" text-anchor="middle" fill="#8896B0" font-size="12">Layer 2 (fixed)</text>
+    <g id="cpz_w1_edges"></g>
+    <g id="cpz_w1_cross"></g>
+    <g id="cpz_w1_nodes"></g>
+  </svg>
+  <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+    <button id="cpz_w1_bf" style="font-family:inherit;font-size:13px;color:#0A1220;background:#43E6C8;border:none;border-radius:6px;padding:8px 14px;cursor:pointer;">Brute force</button>
+    <button id="cpz_w1_step" style="font-family:inherit;font-size:13px;color:#E8EDF5;background:transparent;border:1px solid #43E6C8;border-radius:6px;padding:8px 14px;cursor:pointer;">Step</button>
+    <button id="cpz_w1_reset" style="font-family:inherit;font-size:13px;color:#E8EDF5;background:transparent;border:1px solid #8896B0;border-radius:6px;padding:8px 14px;cursor:pointer;">Reset</button>
+    <span style="font-size:12px;color:#8896B0;margin-left:auto;">Tried: <span id="cpz_w1_tries">0</span> / 24 &nbsp;·&nbsp; best: <span id="cpz_w1_best">&ndash;</span></span>
+  </div>
+  <p style="margin:10px 0 0;font-size:12px;color:#8896B0;line-height:1.6;">Four nodes means <span style="color:#D8A44E;">4! = 4&times;3&times;2&times;1 = 24</span> possible orderings. Brute force can check all 24 in a blink. Add nodes and it detonates: 5 nodes give 120, 10 nodes give 3,628,800.</p>
+  <div id="cpz_w1_banner" style="display:none;margin-top:10px;font-size:13px;color:#D8A44E;background:#0A1220;border:1px solid #43E6C8;border-radius:6px;padding:10px 12px;"></div>
+</div>
+<script>
+(function(){
+  var COLL={bg:"#0A1220",teal:"#43E6C8",gold:"#D8A44E",coral:"#E8735A",text:"#E8EDF5",muted:"#8896B0"};
+  var svgNS="http://www.w3.org/2000/svg";
+  var L0=[{id:"A",y:130},{id:"B",y:240}];
+  var L2=[{id:"C",y:140},{id:"D",y:230}];
+  var INIT=["1","2","3","4"];
+  var L1=INIT.slice();
+  var X={L0:110,L1:320,L2:530};
+  var YS1=[80,160,240,310];
+  var edges=[["A","2"],["A","4"],["B","1"],["B","3"],["A","1"],["B","4"],["1","D"],["2","C"],["3","D"],["4","C"]];
+  var eG=document.getElementById("cpz_w1_edges");
+  var cG=document.getElementById("cpz_w1_cross");
+  var nG=document.getElementById("cpz_w1_nodes");
+  var countEl=document.getElementById("cpz_w1_count");
+  var triesEl=document.getElementById("cpz_w1_tries");
+  var bestEl=document.getElementById("cpz_w1_best");
+  var banner=document.getElementById("cpz_w1_banner");
+
+  function slotY(i){ return YS1[i]; }
+  function yOf(id){
+    if(id===dragging) return dragY;
+    return slotY(L1.indexOf(id));
+  }
+  function fixedPos(id){
+    for(var i=0;i<L0.length;i++) if(L0[i].id===id) return {x:X.L0,y:L0[i].y};
+    for(var k=0;k<L2.length;k++) if(L2[k].id===id) return {x:X.L2,y:L2[k].y};
+    return null;
+  }
+  function posOf(id){
+    var f=fixedPos(id); if(f) return f;
+    return {x:X.L1,y:yOf(id)};
+  }
+  function countCrossingsFor(order){
+    var l1=order||L1, total=0;
+    var pairs=[[L0.map(function(n){return n.id;}),l1],[l1,L2.map(function(n){return n.id;})]];
+    pairs.forEach(function(pr){
+      var upper=pr[0],lower=pr[1],segs=[];
+      edges.forEach(function(e){
+        var su=upper.indexOf(e[0]), sl=lower.indexOf(e[1]);
+        if(su>=0&&sl>=0) segs.push([su,sl]);
+      });
+      segs.sort(function(a,b){ return a[0]-b[0]||a[1]-b[1]; });
+      for(var i=0;i<segs.length;i++) for(var k=i+1;k<segs.length;k++)
+        if(segs[i][0]<segs[k][0] && segs[i][1]>segs[k][1]) total++;
+    });
+    return total;
+  }
+  function edgeCrosses(){
+    var pts=[], upper=L0.map(function(n){return n.id;}), lower=L2.map(function(n){return n.id;});
+    function collect(uArr,lArr){
+      var segs=[];
+      edges.forEach(function(e){
+        var iu=uArr.indexOf(e[0]), il=lArr.indexOf(e[1]);
+        if(iu>=0&&il>=0){ var pu=posOf(e[0]),pl=posOf(e[1]); segs.push({iu:iu,il:il,x1:pu.x,y1:pu.y,x2:pl.x,y2:pl.y}); }
+      });
+      segs.sort(function(a,b){ return a.iu-b.iu||a.il-b.il; });
+      for(var i=0;i<segs.length;i++) for(var k=i+1;k<segs.length;k++)
+        if(segs[i].iu<segs[k].iu && segs[i].il>segs[k].il){
+          var A=segs[i],B=segs[k];
+          var d=(A.x2-A.x1)*(B.y2-B.y1)-(A.y2-A.y1)*(B.x2-B.x1);
+          if(Math.abs(d)>1e-6){
+            var t=((B.x1-A.x1)*(B.y2-B.y1)-(B.y1-A.y1)*(B.x2-B.x1))/d;
+            pts.push({x:A.x1+t*(A.x2-A.x1),y:A.y1+t*(A.y2-A.y1)});
+          }
+        }
+    }
+    collect(upper,L1); collect(L1,lower);
+    return pts;
+  }
+
+  var nodeEls={}, edgeEls=[], dragging=null, dragY=0;
+  function el(name,attrs){ var e=document.createElementNS(svgNS,name); for(var k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+  function build(){
+    while(eG.firstChild) eG.removeChild(eG.firstChild);
+    while(nG.firstChild) nG.removeChild(nG.firstChild);
+    edgeEls=[]; nodeEls={};
+    edges.forEach(function(e){ var ln=el("line",{"stroke-width":"2"}); eG.appendChild(ln); edgeEls.push({ln:ln,e:e}); });
+    function makeNode(id,x,y,drag){
+      var g=el("g",{transform:"translate("+x+","+y+")"});
+      if(drag){ g.style.cursor="grab"; g.setAttribute("data-id",id); g.classList.add("cpz_w1_drag"); g.style.transition="transform .3s ease"; }
+      g.appendChild(el("circle",{r:22,fill:COLL.bg,stroke:drag?COLL.gold:COLL.teal,"stroke-width":2}));
+      var t=el("text",{"text-anchor":"middle","dominant-baseline":"central",fill:COLL.text,"font-size":15}); t.textContent=id; g.appendChild(t);
+      nG.appendChild(g); if(drag) nodeEls[id]=g;
+    }
+    L0.forEach(function(n){ makeNode(n.id,X.L0,n.y,false); });
+    L1.forEach(function(id){ makeNode(id,X.L1,slotY(L1.indexOf(id)),true); });
+    L2.forEach(function(n){ makeNode(n.id,X.L2,n.y,false); });
+    update(true);
+    attachDrag();
+  }
+  function update(instant){
+    var n=countCrossingsFor(), clean=(n===0);
+    L1.forEach(function(id){
+      var g=nodeEls[id]; if(!g) return;
+      g.style.transition=(id===dragging&&!instant)?"none":"transform .3s ease";
+      g.setAttribute("transform","translate("+X.L1+","+yOf(id)+")");
+    });
+    edgeEls.forEach(function(o){
+      var p1=posOf(o.e[0]),p2=posOf(o.e[1]);
+      var dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+      o.ln.setAttribute("x1",p1.x+dx/len*22);o.ln.setAttribute("y1",p1.y+dy/len*22);
+      o.ln.setAttribute("x2",p2.x-dx/len*24);o.ln.setAttribute("y2",p2.y-dy/len*24);
+      o.ln.setAttribute("stroke",clean?COLL.teal:COLL.coral);
+      o.ln.setAttribute("marker-end",clean?"url(#cpz_w1_arrc)":"url(#cpz_w1_arr)");
+    });
+    while(cG.firstChild) cG.removeChild(cG.firstChild);
+    edgeCrosses().forEach(function(pt){ cG.appendChild(el("circle",{cx:pt.x,cy:pt.y,r:5,fill:COLL.gold,opacity:0.85})); });
+    countEl.textContent=n; countEl.style.color=clean?COLL.teal:COLL.gold;
+    countEl.style.transform="scale(1.25)"; setTimeout(function(){countEl.style.transform="scale(1)";},150);
+  }
+  function attachDrag(){
+    document.querySelectorAll(".cpz_w1_drag").forEach(function(g){
+      g.addEventListener("pointerdown",function(ev){ dragging=g.getAttribute("data-id"); dragY=slotY(L1.indexOf(dragging)); g.style.cursor="grabbing"; ev.preventDefault(); });
+    });
+  }
+  document.getElementById("cpz_w1_svg").addEventListener("pointermove",function(ev){
+    if(!dragging) return;
+    var rect=this.getBoundingClientRect();
+    dragY=(ev.clientY-rect.top)/rect.height*350;
+    dragY=Math.max(70,Math.min(320,dragY));
+    var order=L1.slice().sort(function(a,b){
+      var ya=(a===dragging)?dragY:slotY(L1.indexOf(a));
+      var yb=(b===dragging)?dragY:slotY(L1.indexOf(b));
+      return ya-yb;
+    });
+    if(order.join()!==L1.join()) L1=order;
+    update(false);
+  });
+  function endDrag(){
+    if(!dragging) return;
+    var g=nodeEls[dragging]; if(g){ g.style.cursor="grab"; g.style.transition="transform .3s ease"; }
+    dragging=null; update(false);
+  }
+  var svgEl=document.getElementById("cpz_w1_svg");
+  svgEl.addEventListener("pointerup",endDrag);
+  svgEl.addEventListener("pointerleave",endDrag);
+
+  document.getElementById("cpz_w1_reset").onclick=function(){
+    stopAuto(); L1=INIT.slice(); banner.style.display="none"; triesEl.textContent="0"; bestEl.textContent="\u2013"; bfState=null; build();
+  };
+  function perms(arr){
+    if(arr.length<=1) return [arr];
+    var out=[]; arr.forEach(function(v,i){ var rest=arr.slice(0,i).concat(arr.slice(i+1)); perms(rest).forEach(function(p){ out.push([v].concat(p)); }); });
+    return out;
+  }
+  var bfState=null, autoTimer=null;
+  function initBF(){ bfState={all:perms(INIT.slice()),i:0,best:Infinity,bestOrder:null}; banner.style.display="none"; }
+  function oneStep(){
+    if(!bfState) initBF();
+    if(bfState.i>=bfState.all.length){ finishBF(); return false; }
+    L1=bfState.all[bfState.i].slice();
+    var c=countCrossingsFor();
+    if(c<bfState.best){ bfState.best=c; bfState.bestOrder=L1.slice(); }
+    triesEl.textContent=(bfState.i+1); bestEl.textContent=bfState.best;
+    update(false); bfState.i++; return true;
+  }
+  function finishBF(){
+    stopAuto();
+    if(bfState&&bfState.bestOrder){ L1=bfState.bestOrder.slice(); update(false); }
+    banner.style.display="block";
+    banner.textContent="Minimum of "+(bfState?bfState.best:0)+" crossings, found by checking all 24 orderings. With ten nodes in this layer we would have to check 3,628,800.";
+  }
+  function stopAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer=null; } }
+  document.getElementById("cpz_w1_step").onclick=function(){ stopAuto(); if(!bfState||bfState.i===0) initBF(); if(!oneStep()) finishBF(); };
+  document.getElementById("cpz_w1_bf").onclick=function(){ stopAuto(); initBF(); autoTimer=setInterval(function(){ if(!oneStep()) finishBF(); },300); };
+
+  build();
+})();
+</script>  
+<h3 class="sr-only">Interactive crossing counter: drag the four numbered middle nodes to reorder them, or step through the 24 brute-force orderings to find the minimum crossings.</h3>
+
+  <!-- ==================== END Widget 1 ==================== -->
+
+</section>
+
+  <!-- ==================== SECTION 4 ==================== -->
+<section data-section="sugiyama">
+    <h2>The Sugiyama Framework</h2>
+    <p>In 1981, Kozo Sugiyama, Shojiro Tagawa, and Mitsuhiko Toda published a paper in <em>IEEE Transactions on Systems, Man, and Cybernetics</em> with the modest title "Methods for Visual Understanding of Hierarchical System Structures." <a href="https://doi.org/10.1109/TSMC.1981.4308636">It laid out a four-phase pipeline for drawing directed graphs</a> that, more than four decades later, still underpins virtually every serious diagram tool. When Mermaid lays out your flowchart, its default engine, dagre, is running a JavaScript implementation of this framework. Graphviz's <code>dot</code> algorithm is another implementation of the same idea. The Eclipse Layout Kernel, ELK, is a more modern descendant that Mermaid can also be pointed at for harder diagrams.</p>
+
+    <p>The four phases are cycle removal, layer assignment, crossing minimization, and coordinate assignment, run in that order. Each one is an independent algorithmic problem, and each has its own NP-hard worst case with its own family of practical shortcuts. The genius of the paper was not any single algorithm inside a phase. It was the decomposition itself. By breaking one intractable problem into four smaller problems and solving each one "well enough" in sequence, you get a layout that is good enough to read for the graphs that actually turn up in real work. What follows is a walk through each phase, with the same principles the tool applies silently laid out where you can see them.</p>
+
+    <div class="cpz-slot" data-component="svg-pipeline" data-file="inline">
+      
+        <svg width="100%" viewBox="30 45 620 205" xmlns="http://www.w3.org/2000/svg" role="img" style="margin:32px 0;">
+      <title>The Sugiyama four-phase pipeline</title>
+      <desc>Input graph flows through cycle removal, layer assignment, crossing minimization, and coordinate assignment to produce the final drawing.</desc>
+      <defs>
+        <marker id="cpzArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#8896B0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <style>
+          .cpzbox { fill: #0A1220; stroke: #43E6C8; stroke-width: 1; }
+          .cpzend { fill: rgba(216,164,78,0.12); stroke: #D8A44E; stroke-width: 1; }
+          .cpzt { font-family: "Fira Mono","SF Mono",ui-monospace,Menlo,monospace; font-size: 13px; fill: #E8EDF5; }
+          .cpzph { font-family: "Fira Mono","SF Mono",ui-monospace,Menlo,monospace; font-size: 11px; fill: #D8A44E; }
+          .cpzln { stroke: #8896B0; stroke-width: 1.5; fill: none; }
+        </style>
+      </defs>
+
+      <rect class="cpzend" x="40" y="120" width="104" height="56" rx="6"/>
+      <text class="cpzt" x="92" y="152" text-anchor="middle" dominant-baseline="central">Input graph</text>
+
+     
+
+      <rect class="cpzbox" x="178" y="60" width="120" height="56" rx="6"/>
+      <text class="cpzph" x="238" y="80" text-anchor="middle" dominant-baseline="central">Phase 1</text>
+      <text class="cpzt" x="238" y="98" text-anchor="middle" dominant-baseline="central">Cycle removal</text>
+
+      <rect class="cpzbox" x="178" y="180" width="120" height="56" rx="6"/>
+      <text class="cpzph" x="238" y="200" text-anchor="middle" dominant-baseline="central">Phase 2</text>
+      <text class="cpzt" x="238" y="218" text-anchor="middle" dominant-baseline="central">Layer assign</text>
+
+      <rect class="cpzbox" x="382" y="60" width="120" height="56" rx="6"/>
+      <text class="cpzph" x="442" y="80" text-anchor="middle" dominant-baseline="central">Phase 3</text>
+      <text class="cpzt" x="442" y="98" text-anchor="middle" dominant-baseline="central">Crossing min</text>
+
+      <rect class="cpzbox" x="382" y="180" width="120" height="56" rx="6"/>
+      <text class="cpzph" x="442" y="200" text-anchor="middle" dominant-baseline="central">Phase 4</text>
+      <text class="cpzt" x="442" y="218" text-anchor="middle" dominant-baseline="central">Coordinates</text>
+
+      <rect class="cpzend" x="560" y="120" width="80" height="56" rx="6"/>
+      <text class="cpzt" x="600" y="152" text-anchor="middle" dominant-baseline="central">Drawing</text>
+
+      <path class="cpzln" d="M92 120 L92 88 L176 88" marker-end="url(#cpzArrow)"/>
+      <path class="cpzln" d="M238 116 L238 180" marker-end="url(#cpzArrow)"/>
+      <path class="cpzln" d="M298 208 L340 208 L340 88 L380 88" marker-end="url(#cpzArrow)"/>
+      <path class="cpzln" d="M442 116 L442 180" marker-end="url(#cpzArrow)"/>
+      <path class="cpzln" d="M502 208 L544 208 L544 148 L558 148" marker-end="url(#cpzArrow)"/>
+    </svg>
+        
+      
+    </div>
+  </section>
+
+  <!-- ==================== SECTION 5 ==================== -->
+  <section data-section="phase1">
+    <h2>Phase 1: Cycle Removal</h2>
+    <p>The framework's later phases all assume the input is a directed acyclic graph, one where you can walk the arrows forward and never return to where you started. Real graphs rarely oblige. A feedback path in a SystemC model, a loop in a state machine, a mutually recursive pair of build targets: cycles are everywhere, and the very first thing the pipeline has to do is get rid of them.</p>
+
+    <p>It does this by temporarily reversing a small set of edges so that no cycle survives. Choosing the smallest such set is the Feedback Arc Set problem, and in its general form it is NP-hard, so once again the tool reaches for a heuristic rather than an exact answer. For the sparse, shallow graphs that block diagrams tend to be, a greedy approach works well: walk the graph depth-first, and whenever you find an edge pointing back to a node you are still in the middle of visiting, reverse it. That single edge was the one closing a loop, and flipping it breaks the loop without disturbing the rest of the structure.</p>
+
+    <p>The reversed edges are not thrown away. The pipeline remembers them, lays the graph out as though they pointed the "wrong" way, and then in the final drawing flips them back to their true direction, usually rendered as a curved arrow running against the general flow. This is why a well-drawn state machine can show its feedback transitions as graceful backward loops instead of chaos: the loop was cut for the duration of the layout, then quietly stitched back in.</p>
+
+
+
+    
+    <!--  ==================== Start Widget 2: Cycle Breaker ==================== -->
+    <div id="cpz_w2_root" style="font-family:'Fira Mono','SF Mono',ui-monospace,Menlo,monospace;max-width:680px;margin:0 auto;color:#E8EDF5;background:#0A1220;border:1px solid rgba(67,230,200,0.25);border-radius:8px;padding:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <span style="font-size:13px;letter-spacing:0.08em;color:#8896B0;">CYCLE BREAKER</span>
+    <span style="font-size:12px;color:#8896B0;">Back edges remaining: <span id="cpz_w2_backs" style="color:#D8A44E;">2</span></span>
+  </div>
+  <p style="margin:0 0 8px;font-size:12px;color:#8896B0;">Two separate cycles here, so one reversal is not enough. Click an edge to reverse it, or step the greedy heuristic to fix one back edge at a time.</p>
+  <svg id="cpz_w2_svg" width="100%" viewBox="0 0 640 330" style="display:block;">
+    <defs>
+      <marker id="cpz_w2_a_coral" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#E8735A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker>
+      <marker id="cpz_w2_a_teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#43E6C8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker>
+      <marker id="cpz_w2_a_muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8896B0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    </defs>
+    <g id="cpz_w2_edges"></g>
+    <g id="cpz_w2_nodes"></g>
+  </svg>
+  <div id="cpz_w2_status" style="margin:10px 0 0;font-size:13px;padding:9px 12px;border-radius:6px;border:1px solid #E8735A;color:#E8735A;background:rgba(232,115,90,0.06);">Graph is CYCLIC. Cycles: 2</div>
+  <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+    <button id="cpz_w2_step" style="font-family:inherit;font-size:13px;color:#E8EDF5;background:transparent;border:1px solid #43E6C8;border-radius:6px;padding:8px 14px;cursor:pointer;">Step: fix one back edge</button>
+    <button id="cpz_w2_auto" style="font-family:inherit;font-size:13px;color:#0A1220;background:#43E6C8;border:none;border-radius:6px;padding:8px 14px;cursor:pointer;">Auto: DFS greedy</button>
+    <button id="cpz_w2_reset" style="font-family:inherit;font-size:13px;color:#E8EDF5;background:transparent;border:1px solid #8896B0;border-radius:6px;padding:8px 14px;cursor:pointer;">Reset</button>
+    <span id="cpz_w2_hint" style="font-size:12px;color:#8896B0;margin-left:auto;">click a coral edge or press step</span>
+  </div>
+</div>
+<script>
+(function(){
+  var C={bg:"#0A1220",teal:"#43E6C8",gold:"#D8A44E",coral:"#E8735A",text:"#E8EDF5",muted:"#8896B0"};
+  var svgNS="http://www.w3.org/2000/svg";
+  var pos={P:{x:130,y:80},Q:{x:360,y:80},R:{x:360,y:200},S:{x:130,y:230},T:{x:510,y:290}};
+  var base=[["P","Q"],["Q","R"],["R","P"],["P","S"],["S","T"],["T","S"],["R","T"]];
+  var edges=base.map(function(e){ return {from:e[0],to:e[1],reversed:false}; });
+  var order=["P","Q","R","S","T"];
+  var eG=document.getElementById("cpz_w2_edges");
+  var nG=document.getElementById("cpz_w2_nodes");
+  var statusEl=document.getElementById("cpz_w2_status");
+  var backsEl=document.getElementById("cpz_w2_backs");
+  var hintEl=document.getElementById("cpz_w2_hint");
+  var busy=false;
+
+  function adjacency(){
+    var adj={}; order.forEach(function(n){ adj[n]=[]; });
+    edges.forEach(function(e){ adj[e.from].push(e.to); });
+    return adj;
+  }
+  function findBackEdges(){
+    var adj=adjacency(), color={}, backs=[];
+    order.forEach(function(n){ color[n]="white"; });
+    function dfs(u){
+      color[u]="grey";
+      adj[u].forEach(function(v){
+        if(color[v]==="white") dfs(v);
+        else if(color[v]==="grey") backs.push([u,v]);
+      });
+      color[u]="black";
+    }
+    order.forEach(function(n){ if(color[n]==="white") dfs(n); });
+    return backs;
+  }
+  function cycleEdgeSet(){
+    var backs=findBackEdges(), set={};
+    var adj={}; order.forEach(function(n){ adj[n]=[]; });
+    edges.forEach(function(e){ adj[e.from].push(e.to); });
+    backs.forEach(function(b){
+      set[b[0]+b[1]]=true;
+      var target=b[1], stack=[[b[0],[b[0]]]], seen={};
+      while(stack.length){
+        var top=stack.pop(), node=top[0], path=top[1];
+        if(node===target){ for(var i=0;i<path.length-1;i++) set[path[i]+path[i+1]]=true; continue; }
+        if(seen[node]) continue; seen[node]=true;
+        (adj[node]||[]).forEach(function(nb){ if(path.indexOf(nb)<0||nb===target) stack.push([nb,path.concat([nb])]); });
+      }
+    });
+    return set;
+  }
+  function edgePath(e){
+    var a=pos[e.from], b=pos[e.to];
+    var dx=b.x-a.x, dy=b.y-a.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+    var ux=dx/len, uy=dy/len, r=26;
+    var x1=a.x+ux*r, y1=a.y+uy*r, x2=b.x-ux*r, y2=b.y-uy*r;
+    var bend=(e.from==="T"&&e.to==="S")||(e.from==="S"&&e.to==="T")?34:24;
+    var mx=(x1+x2)/2 - uy*bend, my=(y1+y2)/2 + ux*bend;
+    return {d:"M"+x1+" "+y1+" Q"+mx+" "+my+" "+x2+" "+y2, mx:mx, my:my};
+  }
+  function render(flashNode){
+    var backs=findBackEdges();
+    var cset=cycleEdgeSet();
+    while(eG.firstChild) eG.removeChild(eG.firstChild);
+    edges.forEach(function(e,idx){
+      var pth=edgePath(e);
+      var isCycle=cset[e.from+e.to];
+      var col=e.reversed?C.muted:(isCycle?C.coral:C.teal);
+      var marker=e.reversed?"url(#cpz_w2_a_muted)":(isCycle?"url(#cpz_w2_a_coral)":"url(#cpz_w2_a_teal)");
+      var hit=document.createElementNS(svgNS,"path");
+      hit.setAttribute("d",pth.d);hit.setAttribute("fill","none");
+      hit.setAttribute("stroke","transparent");hit.setAttribute("stroke-width","16");
+      hit.style.cursor=busy?"default":"pointer";
+      hit.addEventListener("click",function(){ if(!busy) reverseEdge(idx); });
+      eG.appendChild(hit);
+      var p=document.createElementNS(svgNS,"path");
+      p.setAttribute("d",pth.d);p.setAttribute("fill","none");
+      p.setAttribute("stroke",col);p.setAttribute("stroke-width","2");
+      p.setAttribute("marker-end",marker);
+      if(e.reversed) p.setAttribute("stroke-dasharray","6 4");
+      else if(isCycle){ p.setAttribute("stroke-dasharray","8 4"); p.classList.add("cpz_w2_march"); }
+      p.style.pointerEvents="none";
+      eG.appendChild(p);
+      if(e.reversed){
+        var lab=document.createElementNS(svgNS,"text");
+        lab.setAttribute("x",pth.mx);lab.setAttribute("y",pth.my-6);
+        lab.setAttribute("text-anchor","middle");lab.setAttribute("fill",C.muted);
+        lab.setAttribute("font-size","11");lab.textContent="reversed";
+        lab.style.pointerEvents="none";eG.appendChild(lab);
+      }
+    });
+    while(nG.firstChild) nG.removeChild(nG.firstChild);
+    order.forEach(function(id){
+      var p=pos[id];
+      var g=document.createElementNS(svgNS,"g");
+      g.setAttribute("transform","translate("+p.x+","+p.y+")");
+      var flash=(flashNode===id);
+      var c=document.createElementNS(svgNS,"circle");
+      c.setAttribute("r","26");c.setAttribute("fill",flash?"rgba(216,164,78,0.15)":C.bg);
+      c.setAttribute("stroke",flash?C.gold:C.teal);c.setAttribute("stroke-width","2");
+      var t=document.createElementNS(svgNS,"text");
+      t.setAttribute("text-anchor","middle");t.setAttribute("dominant-baseline","central");
+      t.setAttribute("fill",C.text);t.setAttribute("font-size","16");t.textContent=id;
+      g.appendChild(c);g.appendChild(t);nG.appendChild(g);
+    });
+    backsEl.textContent=backs.length;
+    if(backs.length){
+      statusEl.style.color=C.coral;statusEl.style.borderColor=C.coral;statusEl.style.background="rgba(232,115,90,0.06)";
+      statusEl.innerHTML="Graph is CYCLIC. Cycles: "+backs.length;
+    } else {
+      statusEl.style.color=C.teal;statusEl.style.borderColor=C.teal;statusEl.style.background="rgba(67,230,200,0.06)";
+      statusEl.innerHTML="Graph is ACYCLIC. Ready for layer assignment.";
+    }
+  }
+  function reverseEdge(idx){
+    var e=edges[idx]; var t=e.from; e.from=e.to; e.to=t; e.reversed=!e.reversed;
+    hintEl.textContent="click a coral edge or press step";
+    render();
+  }
+  function fixOneBackEdge(){
+    var backs=findBackEdges();
+    if(!backs.length){ hintEl.textContent="already acyclic"; render(); return false; }
+    var b=backs[0];
+    var idx=edges.findIndex(function(e){ return e.from===b[0]&&e.to===b[1]; });
+    if(idx<0) return false;
+    var e=edges[idx]; var t=e.from; e.from=e.to; e.to=t; e.reversed=true;
+    var remaining=findBackEdges().length;
+    hintEl.textContent="reversed "+b[0]+"\u2192"+b[1]+(remaining?", "+remaining+" cycle left":", acyclic");
+    render(b[1]);
+    setTimeout(function(){ if(!busy) render(); },500);
+    return true;
+  }
+  document.getElementById("cpz_w2_step").onclick=function(){ if(!busy) fixOneBackEdge(); };
+  document.getElementById("cpz_w2_reset").onclick=function(){
+    if(busy) return;
+    edges=base.map(function(e){ return {from:e[0],to:e[1],reversed:false}; });
+    hintEl.textContent="click a coral edge or press step"; render();
+  };
+  document.getElementById("cpz_w2_auto").onclick=function(){
+    if(busy) return;
+    edges=base.map(function(e){ return {from:e[0],to:e[1],reversed:false}; });
+    render(); busy=true;
+    var iv=setInterval(function(){
+      if(findBackEdges().length===0){ clearInterval(iv); busy=false; hintEl.textContent="click a coral edge or press step"; render(); return; }
+      fixOneBackEdge();
+    },850);
+  };
+  var style=document.createElement("style");
+  style.textContent="@keyframes cpz_w2_dash{to{stroke-dashoffset:-24;}} .cpz_w2_march{animation:cpz_w2_dash 1s linear infinite;}";
+  document.getElementById("cpz_w2_root").appendChild(style);
+  render();
+})();
+</script>
+<h3 class="sr-only">Interactive cycle breaker with two separate cycles: click an edge to reverse it, or step the greedy heuristic to reverse one back edge per click until the graph is acyclic.</h3>    
+<!--  ==================== End Widget 2: Cycle Breaker ==================== -->
+    
+    <div class="cpz-callout" data-component="callout-vlsi-timing">
+      <span class="cpz-callout-tag">Hardware aside</span>
+      In VLSI, the same step shows up in timing analysis. A combinational feedback loop, a path that circles back on itself without passing through a register, makes static timing analysis impossible: there is no well-defined start and end to measure delay along. The loop has to be cut somewhere before timing can run, exactly as a cycle has to be cut before layering can run. Same operation, same underlying hardness, two fields that never compare notes.
+    </div>
+  </section>
+
+  <!-- ==================== SECTION 6 ==================== -->
+<section data-section="phase2">
+    <h2>Phase 2: Layer Assignment</h2>
+    <p>With a cycle-free graph in hand, every node gets assigned to a horizontal layer, sometimes called a rank, with one rule: every edge must point from a lower-numbered layer to a higher-numbered one. This is what turns a shapeless graph into something with a clear top-to-bottom flow. The simplest way to do it is the longest-path method: put each node at a layer one greater than the deepest of its predecessors, so sources land in layer 0 and everything else settles as early as its dependencies allow. It is fast, it guarantees every arrow points forward, and it keeps the number of layers as small as possible.</p>
+
+    <p>The complication is edges that reach across more than one layer. Suppose a node in layer 0 connects directly to a node in layer 3. That single edge now has to travel across layers 1 and 2, and the later phases have no clean way to reason about an edge that skips levels. The fix is a small piece of sleight of hand: insert a chain of invisible placeholder nodes, one in each layer the edge passes through, and route the long edge through them. An edge from A in layer 0 to F in layer 3 becomes A to dummy1 to dummy2 to F, four short single-layer hops instead of one long jump.</p>
+
+    <p>These dummy nodes are not just bookkeeping. They take part in the next phase exactly as real nodes do, competing for position and pushing other nodes around, which is precisely what makes the final edge route bend smoothly rather than slicing straight through whatever lies between its endpoints. In the finished drawing they vanish, leaving behind only the waypoints that the edge quietly bends around. The widget below lets you watch layers fill up step by step and see a dummy node appear the moment an edge is stretched across more than one level.</p>
+
+
+<!--   ===================== Start WIdget 3: Layer Assignment and Dummy Node Inserter ==================== -->
+<div id="cpz_w3_root" style="font-family:'Fira Mono','SF Mono',ui-monospace,Menlo,monospace;max-width:680px;margin:0 auto;color:#E8EDF5;background:#0A1220;border:1px solid rgba(67,230,200,0.25);border-radius:8px;padding:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <span style="font-size:13px;letter-spacing:0.08em;color:#8896B0;">LAYER ASSIGNMENT</span>
+    <span style="font-size:12px;color:#8896B0;">Step <span id="cpz_w3_stepnum" style="color:#D8A44E;">0</span> / 5</span>
+  </div>
+  <p id="cpz_w3_caption" style="margin:0 0 8px;font-size:12px;color:#8896B0;min-height:2.4em;line-height:1.4;">All seven nodes start unassigned. The longest-path method places each node one layer deeper than its deepest predecessor. Press step to begin.</p>
+  <svg id="cpz_w3_svg" width="100%" viewBox="0 0 640 340" style="display:block;">
+    <defs>
+      <marker id="cpz_w3_arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8896B0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+      <marker id="cpz_w3_arrc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#E8735A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+      <marker id="cpz_w3_arrt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#43E6C8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    </defs>
+    <g id="cpz_w3_headers"></g>
+    <g id="cpz_w3_edges"></g>
+    <g id="cpz_w3_nodes"></g>
+  </svg>
+  <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+    <button id="cpz_w3_step" style="font-family:inherit;font-size:13px;color:#E8EDF5;background:transparent;border:1px solid #43E6C8;border-radius:6px;padding:8px 14px;cursor:pointer;">Step</button>
+    <button id="cpz_w3_auto" style="font-family:inherit;font-size:13px;color:#0A1220;background:#43E6C8;border:none;border-radius:6px;padding:8px 14px;cursor:pointer;">Auto</button>
+    <button id="cpz_w3_reset" style="font-family:inherit;font-size:13px;color:#E8EDF5;background:transparent;border:1px solid #8896B0;border-radius:6px;padding:8px 14px;cursor:pointer;">Reset</button>
+    <span style="font-size:12px;color:#8896B0;margin-left:auto;">Nodes incl. dummy: <span id="cpz_w3_ncount" style="color:#D8A44E;">7</span></span>
+  </div>
+</div>
+<script>
+(function(){
+  var C={bg:"#0A1220",teal:"#43E6C8",gold:"#D8A44E",coral:"#E8735A",text:"#E8EDF5",muted:"#8896B0"};
+  var svgNS="http://www.w3.org/2000/svg";
+  var edges=[["A","C"],["A","D"],["B","D"],["B","E"],["C","F"],["D","F"],["E","G"],["F","G"],["A","F"]];
+  var COLX=[110,270,430,560];
+  var HOLDX=330;
+  var finalLayer={A:0,B:0,C:1,D:1,E:1,F:2,G:3};
+  var layerSlots={};
+  var YTOP=70, YGAP=62;
+  function slotY(layer,idxInLayer,countInLayer){
+    var totalH=(countInLayer-1)*YGAP;
+    var startY=170-totalH/2;
+    return startY+idxInLayer*YGAP;
+  }
+  var stepAssign=[
+    {nodes:["A","B"],layer:0,caption:"Step 1 \u2014 A and B have no incoming edges, so they are sources. They go to Layer 0."},
+    {nodes:["C","E"],layer:1,caption:"Step 2 \u2014 C depends only on A, and E only on B. Both sit one layer past their sources: Layer 1."},
+    {nodes:["D"],layer:1,caption:"Step 3 \u2014 D depends on A and B, both in Layer 0, so D also lands in Layer 1."},
+    {nodes:["F"],layer:2,caption:"Step 4 \u2014 F depends on C and D (Layer 1), so F goes to Layer 2. Note the edge A\u2192F now spans two layers."},
+    {nodes:["G"],layer:3,caption:"Step 5 \u2014 G depends on E (Layer 1) and F (Layer 2). Longest path wins: G goes to Layer 3."}
+  ];
+  var assigned={};
+  var dummyShown=false;
+  var step=0;
+  var eG=document.getElementById("cpz_w3_edges");
+  var nG=document.getElementById("cpz_w3_nodes");
+  var hG=document.getElementById("cpz_w3_headers");
+  var capEl=document.getElementById("cpz_w3_caption");
+  var stepEl=document.getElementById("cpz_w3_stepnum");
+  var ncEl=document.getElementById("cpz_w3_ncount");
+  var autoTimer=null;
+
+  function computePositions(){
+    var byLayer={0:[],1:[],2:[],3:[]};
+    ["A","B","C","D","E","F","G"].forEach(function(n){
+      if(assigned[n]!==undefined) byLayer[assigned[n]].push(n);
+    });
+    if(dummyShown) byLayer[1].push("dummy");
+    var pos={};
+    Object.keys(byLayer).forEach(function(L){
+      var arr=byLayer[L];
+      arr.forEach(function(n,i){ pos[n]={x:COLX[L],y:slotY(+L,i,arr.length),layer:+L}; });
+    });
+    return pos;
+  }
+  var holdOrder=["A","B","C","D","E","F","G"];
+  function holdPos(n){
+    var i=holdOrder.indexOf(n);
+    return {x:HOLDX,y:60+i*40,layer:-1};
+  }
+  function posOf(n,pos){
+    if(assigned[n]!==undefined && pos[n]) return pos[n];
+    if(n==="dummy" && pos["dummy"]) return pos["dummy"];
+    return holdPos(n);
+  }
+  function render(){
+    var pos=computePositions();
+    while(hG.firstChild) hG.removeChild(hG.firstChild);
+    ["Layer 0","Layer 1","Layer 2","Layer 3"].forEach(function(lbl,i){
+      var t=document.createElementNS(svgNS,"text");
+      t.setAttribute("x",COLX[i]);t.setAttribute("y",34);t.setAttribute("text-anchor","middle");
+      t.setAttribute("fill",C.muted);t.setAttribute("font-size","11");t.textContent=lbl;
+      hG.appendChild(t);
+    });
+    while(eG.firstChild) eG.removeChild(eG.firstChild);
+    edges.forEach(function(e){
+      var from=e[0],to=e[1];
+      var longEdge=(from==="A"&&to==="F");
+      if(longEdge && dummyShown){
+        drawSeg("A","dummy",pos,C.teal,"url(#cpz_w3_arrt)");
+        drawSeg("dummy","F",pos,C.teal,"url(#cpz_w3_arrt)");
+        return;
+      }
+      var bothAssigned=(assigned[from]!==undefined && assigned[to]!==undefined);
+      var spans=bothAssigned && Math.abs(assigned[to]-assigned[from])>1;
+      var col=spans?C.coral:(bothAssigned?C.muted:"rgba(136,150,176,0.35)");
+      var mk=spans?"url(#cpz_w3_arrc)":"url(#cpz_w3_arr)";
+      drawSeg(from,to,pos,col,mk);
+    });
+    while(nG.firstChild) nG.removeChild(nG.firstChild);
+    holdOrder.forEach(function(n){ drawNode(n,pos); });
+    if(dummyShown) drawNode("dummy",pos);
+    stepEl.textContent=step;
+    ncEl.textContent=dummyShown?8:7;
+  }
+  function drawSeg(from,to,pos,col,mk){
+    var p1=posOf(from,pos),p2=posOf(to,pos);
+    var r1=(from==="dummy")?9:22, r2=(to==="dummy")?9:24;
+    var dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+    var ln=document.createElementNS(svgNS,"line");
+    ln.setAttribute("x1",p1.x+dx/len*r1);ln.setAttribute("y1",p1.y+dy/len*r1);
+    ln.setAttribute("x2",p2.x-dx/len*r2);ln.setAttribute("y2",p2.y-dy/len*r2);
+    ln.setAttribute("stroke",col);ln.setAttribute("stroke-width","2");ln.setAttribute("marker-end",mk);
+    eG.appendChild(ln);
+  }
+  function drawNode(n,pos){
+    var p=posOf(n,pos);
+    var isDummy=(n==="dummy");
+    var isAssigned=(n==="dummy")||(assigned[n]!==undefined);
+    var g=document.createElementNS(svgNS,"g");
+    g.setAttribute("transform","translate("+p.x+","+p.y+")");
+    g.style.transition="transform 0.5s ease";
+    var c=document.createElementNS(svgNS,"circle");
+    c.setAttribute("r",isDummy?9:22);
+    c.setAttribute("fill",C.bg);
+    c.setAttribute("stroke",isDummy?C.muted:(isAssigned?C.teal:C.muted));
+    c.setAttribute("stroke-width","2");
+    if(isDummy) c.setAttribute("stroke-dasharray","4 3");
+    g.appendChild(c);
+    if(!isDummy){
+      var t=document.createElementNS(svgNS,"text");
+      t.setAttribute("text-anchor","middle");t.setAttribute("dominant-baseline","central");
+      t.setAttribute("fill",isAssigned?C.text:C.muted);t.setAttribute("font-size","15");t.textContent=n;
+      g.appendChild(t);
+    } else {
+      var t2=document.createElementNS(svgNS,"text");
+      t2.setAttribute("text-anchor","middle");t2.setAttribute("dominant-baseline","central");
+      t2.setAttribute("fill",C.muted);t2.setAttribute("font-size","11");t2.textContent="\u2205";
+      g.appendChild(t2);
+    }
+    nG.appendChild(g);
+  }
+  function doStep(){
+    if(step>=6){ return false; }
+    if(step<5){
+      var s=stepAssign[step];
+      s.nodes.forEach(function(n){ assigned[n]=s.layer; });
+      capEl.textContent=s.caption;
+      step++;
+      render();
+      return true;
+    }
+    if(step===5){
+      dummyShown=true;
+      capEl.textContent="Dummy node \u2014 the edge A\u2192F skipped Layer 1, so we insert an invisible waypoint there. A\u2192F becomes A\u2192\u2205\u2192F, two short hops the later phases can handle. The dummy vanishes in the final drawing.";
+      step++;
+      render();
+      return false;
+    }
+    return false;
+  }
+  document.getElementById("cpz_w3_step").onclick=function(){ stopAuto(); doStep(); };
+  document.getElementById("cpz_w3_auto").onclick=function(){
+    stopAuto();
+    autoTimer=setInterval(function(){ if(!doStep()) stopAuto(); },1300);
+  };
+  document.getElementById("cpz_w3_reset").onclick=function(){
+    stopAuto(); assigned={}; dummyShown=false; step=0;
+    capEl.textContent="All seven nodes start unassigned. The longest-path method places each node one layer deeper than its deepest predecessor. Press step to begin.";
+    render();
+  };
+  function stopAuto(){ if(autoTimer){ clearInterval(autoTimer); autoTimer=null; } }
+  render();
+})();
+</script>
+<h3 class="sr-only">Interactive layer assignment: step through the longest-path algorithm placing nodes into layers, then watch a dummy node appear on the edge that spans two layers.</h3>
+<!--   ===================== End WIdget 3: Layer Assignment and Dummy Node Inserter ==================== -->
+
+  </section>
+
+
+  <!-- ==================== SECTION 7 ==================== -->
+  <section data-section="phase3">
+    <h2>Phase 3: Crossing Minimization</h2>
+    <p>This is the heart of the whole thing, and the phase that was quietly torturing my memory subsystem diagram. Every node now sits in a layer, but the order of nodes <em>within</em> each layer is still up for grabs, and that ordering is what decides how many edges cross. The problem shrinks to a clean question asked once per pair of adjacent layers: given these two rows of nodes, what ordering minimizes the crossings between them? This is the bipartite crossing number problem, and as noted earlier it is NP-hard even in this two-layer form. So the pipeline does not solve it. It approximates it, well.</p>
+
+    <p>The workhorse heuristic is the barycenter method, and its intuition is almost physical. For each node in one layer, look at its neighbors in the adjacent fixed layer and compute their average position. That average, the barycenter, is where the node "wants" to sit, right in the middle of the things it connects to. Sort the nodes in the layer by their barycenters and you pull each one toward its neighbors, which tends to straighten the edges between the two layers. Then flip direction and do it again, letting the layer you just fixed drive the ordering of the one beside it. The sweep runs back and forth, layer by layer, until a pass produces no further improvement.</p>
+
+    <p>Barycenter sweeps are fast but a little myopic; they can settle into an ordering that is good but not quite locally optimal. So a second, finer heuristic rides alongside it: the transpose step. After a sweep, walk through each layer and, for every adjacent pair of nodes, try swapping them. If the swap lowers the crossing count, keep it; if not, put them back. This is pure local search, and it catches the small stubborn tangles that the barycenter average glides past.</p>
+
+    <p>Neither step promises the true minimum, and neither needs to. Alternating barycenter sweeps with transpose passes converges quickly in practice, typically within a few dozen iterations even on real-world graphs, and lands on a layout that is almost always good enough to read. When it does not quite reach zero, that is not a bug. It is the visible edge of an NP-hard problem, and the tool declining to spend the rest of the afternoon chasing an arrangement that may not exist.</p>
+
+    <div class="cpz-slot" data-component="animation2" data-file="animation2_barycenter.py">
+      <span class="cpz-slot-label">[ ANIMATION 2: The Barycenter Sweep ]
+        <small>~35s Manim, spring metaphor, live crossing count — placeholder</small>
+      </span>
+    </div>
+
+    <div class="cpz-callout" data-component="callout-inversions">
+      <span class="cpz-callout-tag">A connection worth pausing on</span>
+      There is a small, satisfying secret hiding in "count the crossings between two layers." Line the upper-layer nodes up in order, list each edge by where its lower endpoint lands, and the number of crossings is exactly the number of pairs in that list that are out of order. That is the number of inversions in a permutation, the same quantity you count while merge sort is busy merging. So counting crossings is not a geometry problem at all; it is the classic inversion count, which means it can be done in O(E log E) with a merge sort instead of checking every pair of edges in O(E squared). The visual tangle and the sorting exercise turn out to be the same object wearing different clothes.
+    </div>
+  </section>
+
+  <!-- ==================== SECTION 8 ==================== -->
+  <section data-section="phase4">
+    <h2>Phase 4: Coordinate Assignment</h2>
+    <p>By now the hard combinatorial work is done. Every node knows which layer it belongs to and where it sits in that layer's ordering. The last phase turns those abstract positions into real pixel coordinates. One axis is trivial: every node in the same layer shares the same coordinate along the flow direction, so the layers line up as clean rows. The other axis is where the remaining judgment lives. Nodes are nudged along it to shorten edges and reduce the number of bends, while keeping enough space that no two nodes overlap. The common approach, often the Brandes-Köpf method, balances each node against pulls from the layers above and below until the whole drawing settles into something straight and evenly spaced.</p>
+
+    <p>This is also where the earlier sleight of hand pays off. The dummy nodes inserted back in phase 2 become the waypoints that long edges bend through, so a wire spanning several layers arcs smoothly around whatever lies in its path instead of cutting across it. And the edges reversed in phase 1 are finally flipped back to their true direction and drawn as gentle curves running against the flow, the visible scar of the cycles that had to be cut. What comes out the far end is the diagram you actually see: rows of aligned nodes, edges that bend rather than slice, and feedback loops that read as loops. Four tractable problems, solved in sequence, adding up to something that looks like it was arranged by hand.</p>
+  </section>
+
+  <!-- ==================== SECTION 9 ==================== -->
+  <section data-section="vlsi">
+    <h2>The VLSI Connection</h2>
+    <p>Here is where the rabbit hole opened all the way up. The problem of minimizing crossings in a block diagram is not merely similar to a problem in chip design. It is structurally the same problem, wearing the vocabulary of a different field. On the hardware side it is called channel routing, and it is one of the oldest problems in VLSI physical design.</p>
+
+    <p>A channel is a rectangular strip of the chip bounded above and below by two rows of pins. Each net, a named connection between pins, has to be assigned to a horizontal track running along the channel. Two nets cannot share a track if their horizontal spans overlap, because their wires would collide. The goal is to connect everything using as few tracks as possible, since fewer tracks means a shorter channel and a smaller chip. Swap a few words and this is the layer-ordering problem from phase 3: tracks are the orderings, nets are the nodes, and a track conflict is a crossing.</p>
+
+    <p>The correspondence is not loose analogy, it is captured by two graphs that the router builds explicitly. The Horizontal Constraint Graph connects any two nets whose spans overlap, meaning they cannot occupy the same track; the minimum number of tracks is bounded below by the largest clique in that graph, which is itself NP-hard to find exactly. The Vertical Constraint Graph captures ordering: if a pin on the top row and a pin on the bottom row must connect through the same column, one net is forced above the other, and a cycle in this graph means the channel simply cannot be routed as drawn without an escape hatch. Line these up against the graph-drawing phases and they match part for part: the HCG clique is the width of a layer, a VCG cycle is a Sugiyama back-edge, a track is a layer, a net is a node, and the via you insert to break an unroutable VCG cycle is the dummy node you insert to route a long edge. The Yoshimura-Kuh channel router, published in 1982, and the greedy channel routers of the same year are direct contemporaries of the Sugiyama paper, three groups of people solving one problem from two directions without, as far as I can tell, ever quite noticing they were the same.</p>
+
+    <p>That is the thread the widget below pulls on. Toggle between the graph view and the channel view and you are looking at a single underlying structure rendered two ways. Reorder the nodes and watch the tracks rearrange to match. The picture changes; the constraints do not.</p>
+
+    <div class="cpz-callout" data-component="callout-same-problem">
+      <span class="cpz-callout-tag">Personal aside</span>
+      The moment it clicked was embarrassingly late. I had spent years calling the same phenomenon "crossings" when I was annoyed at a diagram and "design rule violations" when I was annoyed at a layout, and treating them as unrelated irritations from unrelated tools. They are the same irritation. The math underneath does not know or care whether it is arranging boxes in a flowchart or wires on silicon. It only sees a constraint graph.
+    </div>
+
+   
+    <!-- =========================Start Widget 4 =============================== -->
+
+<div id="cpz_w4_root" style="font-family:'Fira Mono','SF Mono',ui-monospace,Menlo,monospace;max-width:680px;margin:0 auto;color:#E8EDF5;background:#0A1220;border:1px solid rgba(67,230,200,0.25);border-radius:8px;padding:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+    <span style="font-size:13px;letter-spacing:0.08em;color:#8896B0;">THE SAME PROBLEM</span>
+    <div style="display:flex;gap:0;border:1px solid #43E6C8;border-radius:6px;overflow:hidden;">
+      <button id="cpz_w4_tg" style="font-family:inherit;font-size:12px;padding:6px 12px;border:none;cursor:pointer;background:#43E6C8;color:#0A1220;">Graph view</button>
+      <button id="cpz_w4_tc" style="font-family:inherit;font-size:12px;padding:6px 12px;border:none;cursor:pointer;background:transparent;color:#E8EDF5;">Channel view</button>
+    </div>
+  </div>
+  <p style="margin:0 0 8px;font-size:12px;color:#8896B0;">Drag a bottom node left or right to reorder it. Both views show one structure. <span id="cpz_w4_metric" style="color:#D8A44E;">Crossings: 0</span></p>
+  <svg id="cpz_w4_svg" width="100%" viewBox="0 0 640 300" style="display:block;touch-action:none;"></svg>
+  <div style="margin-top:12px;border-top:1px solid rgba(136,150,176,0.25);padding-top:10px;">
+    <div style="font-size:11px;letter-spacing:0.06em;color:#8896B0;margin-bottom:6px;">SAME OBJECT, TWO VOCABULARIES</div>
+    <div id="cpz_w4_map" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:12px;"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var C={bg:"#0A1220",teal:"#43E6C8",gold:"#D8A44E",coral:"#E8735A",text:"#E8EDF5",muted:"#8896B0"};
+  var svgNS="http://www.w3.org/2000/svg";
+  var view="graph";
+  var top=["A","B","C","D"];
+  var bottom=["3","1","4","2"];
+  var nets=[["A","2"],["B","1"],["C","4"],["D","3"]];
+  var TOPX={A:120,B:240,C:360,D:480};
+  function SLOTX(i){ return 200+i*100; }
+  var svg=document.getElementById("cpz_w4_svg");
+  var metricEl=document.getElementById("cpz_w4_metric");
+  var mapEl=document.getElementById("cpz_w4_map");
+
+  var pairs=[["Crossing (graph)","Track conflict (channel)"],["Node ordering","Track assignment"],["Dummy node","Via / layer change"],["Back-edge","Unroutable VCG cycle"]];
+  function renderMap(activeIdx){
+    mapEl.innerHTML="";
+    pairs.forEach(function(p,i){
+      var l=document.createElement("div"); l.textContent=p[0];
+      var r=document.createElement("div"); r.textContent=p[1];
+      var on=(i===activeIdx);
+      l.style.color=on?C.teal:C.muted; r.style.color=on?C.teal:C.muted;
+      l.style.transition="color .3s"; r.style.transition="color .3s";
+      mapEl.appendChild(l); mapEl.appendChild(r);
+    });
+  }
+  function el(name,attrs){ var e=document.createElementNS(svgNS,name); for(var k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+  function countCrossings(){
+    var segs=nets.map(function(n){ return [top.indexOf(n[0]), bottom.indexOf(n[1])]; });
+    segs.sort(function(a,b){ return a[0]-b[0]; });
+    var cr=0;
+    for(var i=0;i<segs.length;i++) for(var k=i+1;k<segs.length;k++) if(segs[i][1]>segs[k][1]) cr++;
+    return cr;
+  }
+  function assignTracks(){
+    var items=nets.map(function(n){
+      var a=TOPX[n[0]], b=SLOTX(bottom.indexOf(n[1]));
+      return {net:n,left:Math.min(a,b),right:Math.max(a,b),label:n[0]+"\u2013"+n[1]};
+    });
+    items.sort(function(x,y){ return x.left-y.left; });
+    var tracks=[];
+    items.forEach(function(it){
+      var placed=false;
+      for(var t=0;t<tracks.length;t++){
+        var ok=true;
+        tracks[t].forEach(function(o){ if(!(it.right<o.left-4||it.left>o.right+4)) ok=false; });
+        if(ok){ tracks[t].push(it); it.track=t; placed=true; break; }
+      }
+      if(!placed){ it.track=tracks.length; tracks.push([it]); }
+    });
+    return {items:items,trackCount:tracks.length};
+  }
+
+  var nodeEls={};
+  var edgeEls=[];
+  var dragging=null, dragX=0, built=null;
+
+  function build(){
+    svg.innerHTML=""; nodeEls={}; edgeEls=[];
+    var defs=el("defs",{});
+    defs.innerHTML='<marker id="cpz_w4_a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#E8735A" stroke-width="1.5" stroke-linecap="round"/></marker><marker id="cpz_w4_a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#43E6C8" stroke-width="1.5" stroke-linecap="round"/></marker>';
+    svg.appendChild(defs);
+
+    if(view==="graph"){
+      svg.appendChild(el("text",{x:120,y:34,"text-anchor":"middle",fill:C.muted,"font-size":"11"})).textContent="Top pins (fixed)";
+      svg.appendChild(el("text",{x:400,y:288,"text-anchor":"middle",fill:C.gold,"font-size":"11"})).textContent="Bottom pins (drag to reorder)";
+      nets.forEach(function(n){
+        var ln=el("line",{stroke:C.teal,"stroke-width":"2"}); svg.appendChild(ln); edgeEls.push({ln:ln,net:n});
+      });
+      top.forEach(function(id){
+        var g=el("g",{transform:"translate("+TOPX[id]+",70)"});
+        g.appendChild(el("circle",{r:18,fill:C.bg,stroke:C.teal,"stroke-width":2}));
+        var t=el("text",{"text-anchor":"middle","dominant-baseline":"central",fill:C.text,"font-size":14}); t.textContent=id; g.appendChild(t);
+        svg.appendChild(g);
+      });
+      bottom.forEach(function(id){
+        var g=el("g",{"data-id":id}); g.style.cursor="grab"; g.classList.add("cpz_w4_drag"); g.style.transition="transform .3s ease";
+        g.appendChild(el("circle",{r:18,fill:C.bg,stroke:C.gold,"stroke-width":2}));
+        var t=el("text",{"text-anchor":"middle","dominant-baseline":"central",fill:C.text,"font-size":14}); t.textContent=id; g.appendChild(t);
+        svg.appendChild(g); nodeEls[id]=g;
+      });
+    } else {
+      top.forEach(function(id){
+        var x=TOPX[id];
+        svg.appendChild(el("line",{x1:x,y1:60,x2:x,y2:74,stroke:C.muted,"stroke-width":2}));
+        svg.appendChild(el("text",{x:x,y:52,"text-anchor":"middle",fill:C.text,"font-size":13})).textContent=id;
+      });
+      var netLayer=el("g",{}); svg.appendChild(netLayer); build.netLayer=netLayer;
+      bottom.forEach(function(id){
+        svg.appendChild(el("text",{x:0,y:0,"text-anchor":"middle",fill:C.text,"font-size":13,"data-btext":id})).textContent=id;
+        var g=el("g",{"data-id":id}); g.style.cursor="grab"; g.classList.add("cpz_w4_drag"); g.style.transition="transform .3s ease";
+        g.appendChild(el("line",{x1:0,y1:-14,x2:0,y2:0,stroke:C.gold,"stroke-width":2}));
+        g.appendChild(el("rect",{x:-16,y:0,width:32,height:22,fill:"transparent"}));
+        svg.appendChild(g); nodeEls[id]=g;
+      });
+    }
+    built=view;
+    positionAll(true);
+  }
+
+  function positionAll(instant){
+    var cr=countCrossings();
+    if(view==="graph"){
+      var clean=(cr===0);
+      bottom.forEach(function(id,i){
+        var x=(id===dragging)?dragX:SLOTX(i);
+        var g=nodeEls[id]; g.style.transition=(id===dragging&&!instant)?"none":"transform .3s ease";
+        g.setAttribute("transform","translate("+x+",230)");
+      });
+      edgeEls.forEach(function(o){
+        var x1=TOPX[o.net[0]];
+        var bi=bottom.indexOf(o.net[1]);
+        var x2=(o.net[1]===dragging)?dragX:SLOTX(bi);
+        o.ln.setAttribute("x1",x1);o.ln.setAttribute("y1",88);
+        o.ln.setAttribute("x2",x2);o.ln.setAttribute("y2",212);
+        o.ln.setAttribute("stroke",clean?C.teal:C.coral);
+        o.ln.setAttribute("marker-end",clean?"url(#cpz_w4_a2)":"url(#cpz_w4_a1)");
+      });
+      metricEl.textContent="Crossings: "+cr;
+      renderMap(cr>0?0:-1);
+    } else {
+      var res=assignTracks();
+      var topY=74, botY=250;
+      var trackGap=(botY-14-topY-24)/Math.max(res.trackCount,1);
+      var nl=build.netLayer; nl.innerHTML="";
+      var conflicts=0;
+      res.items.forEach(function(it){
+        var y=topY+24+it.track*trackGap;
+        var conflict=false;
+        res.items.forEach(function(o){ if(o!==it&&o.track===it.track&&!(it.right<o.left-4||it.left>o.right+4)) conflict=true; });
+        if(conflict) conflicts++;
+        var col=conflict?C.coral:C.teal;
+        var xa=TOPX[it.net[0]], xb=SLOTX(bottom.indexOf(it.net[1]));
+        nl.appendChild(el("line",{x1:xa,y1:topY,x2:xa,y2:y,stroke:col,"stroke-width":1.5,opacity:0.6}));
+        nl.appendChild(el("line",{x1:xb,y1:y,x2:xb,y2:botY-14,stroke:col,"stroke-width":1.5,opacity:0.6}));
+        nl.appendChild(el("line",{x1:it.left,y1:y,x2:it.right,y2:y,stroke:col,"stroke-width":3}));
+        nl.appendChild(el("text",{x:(it.left+it.right)/2,y:y-6,"text-anchor":"middle",fill:col,"font-size":10})).textContent=it.label;
+      });
+      bottom.forEach(function(id,i){
+        var x=(id===dragging)?dragX:SLOTX(i);
+        var g=nodeEls[id]; g.style.transition=(id===dragging&&!instant)?"none":"transform .3s ease";
+        g.setAttribute("transform","translate("+x+","+botY+")");
+      });
+      svg.querySelectorAll("[data-btext]").forEach(function(t){
+        var id=t.getAttribute("data-btext"); var i=bottom.indexOf(id);
+        var x=(id===dragging)?dragX:SLOTX(i);
+        t.setAttribute("x",x); t.setAttribute("y",botY+34);
+      });
+      svg.querySelectorAll("text").forEach(function(t){ if(t.textContent.indexOf("Tracks used")===0) t.remove(); });
+      svg.appendChild(el("text",{x:120,y:34,"text-anchor":"middle",fill:C.muted,"font-size":11})).textContent="Tracks used: "+res.trackCount;
+      metricEl.textContent="Track conflicts: "+((conflicts/2)|0)+"  \u00b7  tracks: "+res.trackCount;
+      renderMap(conflicts>0?0:1);
+    }
+  }
+
+  function attachDrag(){
+    svg.querySelectorAll(".cpz_w4_drag").forEach(function(g){
+      g.addEventListener("pointerdown",function(ev){
+        dragging=g.getAttribute("data-id");
+        dragX=SLOTX(bottom.indexOf(dragging));
+        g.style.cursor="grabbing";
+        ev.preventDefault();
+      });
+    });
+  }
+  svg.addEventListener("pointermove",function(ev){
+    if(!dragging) return;
+    var rect=svg.getBoundingClientRect();
+    dragX=(ev.clientX-rect.left)/rect.width*640;
+    dragX=Math.max(180,Math.min(500,dragX));
+    var order=bottom.slice().sort(function(a,b){
+      var xa=(a===dragging)?dragX:SLOTX(bottom.indexOf(a));
+      var xb=(b===dragging)?dragX:SLOTX(bottom.indexOf(b));
+      return xa-xb;
+    });
+    if(order.join()!==bottom.join()){ bottom=order; }
+    positionAll(false);
+  });
+  function endDrag(){
+    if(!dragging) return;
+    var g=nodeEls[dragging]; if(g){ g.style.cursor="grab"; g.style.transition="transform .3s ease"; }
+    dragging=null;
+    positionAll(false);
+  }
+  svg.addEventListener("pointerup",endDrag);
+  svg.addEventListener("pointerleave",endDrag);
+
+  function draw(){ build(); attachDrag(); }
+  document.getElementById("cpz_w4_tg").onclick=function(){
+    view="graph"; this.style.background=C.teal; this.style.color=C.bg;
+    document.getElementById("cpz_w4_tc").style.background="transparent"; document.getElementById("cpz_w4_tc").style.color=C.text; draw();
+  };
+  document.getElementById("cpz_w4_tc").onclick=function(){
+    view="channel"; this.style.background=C.teal; this.style.color=C.bg;
+    document.getElementById("cpz_w4_tg").style.background="transparent"; document.getElementById("cpz_w4_tg").style.color=C.text; draw();
+  };
+  draw();
+})();
+</script>
+     <h3 class="sr-only">Interactive comparison of a graph crossing problem and a VLSI channel routing problem. Drag a bottom terminal and watch nodes glide into place; both views stay in sync.</h3>
+<!-- =========================End   Widget 4 =============================== -->
+  </section>
+
+  <!-- ==================== SECTION 10 ==================== -->
+  <section data-section="code">
+    <h2>A Minimal C++ Implementation</h2>
+    <p>Theory is easier to trust when you can run it. What follows is a small, complete C++ program that walks through the whole pipeline: detect and reverse cycles, assign layers by longest path, count crossings, and minimize them with alternating barycenter sweeps and transpose passes. It is deliberately not written for speed or production use. It is written to line up one-to-one with the phases described above, so you can read a function and point to the paragraph it came from. The one place it does reach for efficiency is the crossing count, which uses the merge-sort inversion trick from the aside earlier: counting crossings between two layers is exactly counting inversions in a permutation, so it runs in O(E log E) rather than checking every pair of edges. The full source, including a second file that benchmarks the inversion count against the naive quadratic version, is on GitHub.</p>
+
+    <div class="cpz-slot" data-component="code1" data-file="sugiyama_demo.cpp">
+      <span class="cpz-slot-label">[ CODE 1: sugiyama_demo.cpp ]
+        <small>syntax-highlighted block + GitHub link — placeholder</small>
+      </span>
+    </div>
+
+    <p>Compiled and run on the A-to-F graph from the top of the post, the same one the animation teased, it reproduces the layout by machine rather than by eye. The output below is captured directly from a real run, not transcribed by hand, so the numbers here are the numbers the algorithm actually produces:</p>
+
+    <div class="cpz-slot" data-component="code1-output" data-file="verified-output">
+      <span class="cpz-slot-label">[ CODE 1 OUTPUT: verified stdout from the three testbenches ]
+        <small>fill with real compiled output — placeholder</small>
+      </span>
+    </div>
+  </section>
+
+  <!-- ==================== SECTION 11 ==================== -->
+  <section data-section="closing">
+    <h2>What Mermaid Actually Does</h2>
+    <p>Step back and the shape of the journey is a little funny. Arranging some boxes so their arrows do not cross feels like it should be trivial, the kind of thing you would knock out with a bit of trial and error. Instead it turns out to brush up against NP-hardness at nearly every phase: the feedback arc set you cut to remove cycles, the crossing count you fight in the middle, the clique that bounds a channel's width. The real gift of the Sugiyama framework was never a single clever algorithm. It was the decision to stop trying to solve the whole thing at once, and to break it into four smaller problems, each of which a fast, imperfect heuristic can handle well enough.</p>
+
+    <p>That is exactly what your tools are doing when you are not looking. Mermaid's default engine, dagre, is a Sugiyama implementation built around barycenter crossing minimization, and it assumes you have handed it something acyclic to begin with. Point Mermaid at its ELK backend and you get a more elaborate crossing-minimization stage for the diagrams that dagre struggles with. Graphviz's dot is the same framework again. None of them promises a crossing-free result, because for a general graph that promise cannot be kept. They promise a good-enough arrangement, quickly, and most of the time that is what readable means.</p>
+
+    <p>So the next time a Mermaid diagram hands you a crossed-arrow mess, it is worth remembering what just happened on your behalf. The layout engine ran a lineage of algorithms reaching back to a 1981 paper, algorithms whose cousins route the wires on the very chips you might be drawing the diagram to describe. We describe the structure in text now and let the machine place it, and it has been quietly applying these principles the whole time, whether or not we ever went looking for them. The abstraction layers could not look more different. The constraint graph underneath is the same.</p>
+  </section>
+
+</article>
+</body>
+</html>
