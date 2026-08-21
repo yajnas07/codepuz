@@ -1,0 +1,540 @@
+<style>
+/* Scope everything under a wrapper so it never leaks into theme chrome */
+.cp-post {
+  --cp-ink: #2b2f36;
+  --cp-muted: #5b636e;
+  --cp-surface: #f6f7f9;
+  --cp-border: #e2e5ea;
+  --cp-accent: #0f7d7d;        /* teal */
+  --cp-accent-soft: #e7f3f2;
+  --cp-code-bg: #f4f5f7;
+  --cp-code-ink: #1f2937;
+  --cp-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+  color: var(--cp-ink);
+}
+.cp-post .cp-code {
+  background: var(--cp-code-bg);
+  border: 1px solid var(--cp-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 1.2em 0;
+  overflow-x: auto;
+  font-family: var(--cp-mono);
+  font-size: 0.9em;
+  line-height: 1.55;
+  color: var(--cp-code-ink);
+  white-space: pre;
+  tab-size: 2;
+}
+.cp-post .cp-code .cp-comment { color: #7a828d; font-style: italic; }
+.cp-post code.cp-inline {
+  font-family: var(--cp-mono);
+  font-size: 0.88em;
+  background: var(--cp-code-bg);
+  border: 1px solid var(--cp-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.cp-post .cp-widget-caption {
+  font-size: 0.86em;
+  color: var(--cp-muted);
+  margin-top: 8px;
+  font-style: italic;
+}
+</style>
+
+<div class="cp-post">
+
+<h2>Raw Loops to Ranges</h2>
+
+<p>This is a journey from raw for loops to ranges, told through a single piece of C++. It starts where a great deal of C++ starts: a flat vector, a few nested loops, and a stack of intermediate containers that exist only to feed the next loop in line. It ends with the same work written as one composed C++20 ranges pipeline that allocates nothing in between. The worthwhile part is the road connecting those two points, and what each step along it reveals about why ranges were worth waiting for.</p>
+
+<p>And there was a wait. In a large engineering organization, the compiler is not really anyone's to choose. It is a shared contract. Every team, every internal library, every third-party product linked into the build carries an opinion about which language standard may cross the boundary, and the answer settles at the same place every time: whatever the most conservative party in the room can support. On a hybrid platform stitched together from components built inside and outside the company, that place is the lowest common denominator, and it tends to stay put for years.</p>
+
+<p>It would be easy to file this under complaint. It is not one. That discipline is the reason systems built two decades ago still boot, still ship, and still pay the bills. Refusing to scatter bleeding-edge language features across a codebase that has to outlive any single engineer's tenure is not timidity, it is the kind of restraint that keeps large systems alive long enough to become load-bearing. There is a badge of honor in it, and the badge is earned.</p>
+
+<p>But something has shifted. The floor is finally rising. The baseline that every party in the ecosystem can agree on has crept upward, and a whole shelf of tools that used to sit out of reach is now quietly available. Nothing needs to be rewritten to take advantage of it. The next thing written just gets to be better than the last.</p>
+
+<h2>One Task, Three Ways</h2>
+
+<p>Let's look at a simple task. Given a list of people, each with a name and an age, we have to produce the names of everyone who is an adult. Filter, then extract. Two operations, and every C++ programmer has written some version of them a hundred times. The point of this section is to write it three ways, watching the same job get said in three progressively better vocabularies.</p>
+
+<div class="cp-code">struct Person {
+    std::string name;
+    int         age;
+};
+
+std::vector&lt;Person&gt; people = {
+    { "Ada",    36 },
+    { "Bjarne", 17 },
+    { "Grace",  45 },
+    { "Linus",  15 },
+    { "Dennis", 41 },
+};
+<span class="cp-comment">// wanted: the names of everyone aged 18 or older -> Ada, Grace, Dennis</span></div>
+
+<p>The first way is the raw loop. Walk the list, test each person, and for the ones who qualify, push the name into a result vector. It is the version most people write first, and there is nothing wrong with any single line of it.</p>
+
+<div class="cp-code">std::vector&lt;std::string&gt; adults;
+for (const auto&amp; p : people) {
+    if (p.age &gt;= 18) {
+        adults.push_back(p.name);
+    }
+}</div>
+
+<p>It works, and it is perfectly clear. What it is not is declarative. The loop describes a procedure, walk, test, push, and leaves the reader to infer the goal from the mechanics. The filtering and the extraction are tangled together inside one loop body, so the two distinct operations are not visible as two operations. On this scale that costs nothing. The cost appears later, when there are three conditions instead of one and the loop body grows a thicket of nested tests.</p>
+
+<p>The second way reaches for the classic standard library, the iterator-pair algorithms that predate ranges. The instinct is right, separate the filter from the extraction, but the tools fight back. <code class="cp-inline">std::copy_if</code> filters, <code class="cp-inline">std::transform</code> extracts, and neither composes, so each needs its own destination container and its own pair of iterators spelled out.</p>
+
+<div class="cp-code"><span class="cp-comment">// filter into a temporary</span>
+std::vector&lt;Person&gt; adult_people;
+std::copy_if(people.begin(), people.end(),
+             std::back_inserter(adult_people),
+             [](const Person&amp; p) { return p.age &gt;= 18; });
+
+<span class="cp-comment">// then extract names into another</span>
+std::vector&lt;std::string&gt; adults;
+std::transform(adult_people.begin(), adult_people.end(),
+               std::back_inserter(adults),
+               [](const Person&amp; p) { return p.name; });</div>
+
+<p>This is arguably worse than the loop, not better. The two operations are now named, which is progress, but naming them cost an entire intermediate vector, four iterator arguments, a <code class="cp-inline">back_inserter</code> on each call, and twice the line count. The iterator-pair model cannot chain, so composing two operations means materializing the result of the first before the second can begin. The abstraction leaked, and the reader pays for it in ceremony.</p>
+
+<p>The third way is ranges. The same two operations, filter and extract, composed with the pipe operator into a single expression that reads in the order the data flows.</p>
+
+<div class="cp-code">auto adults = people
+    | std::views::filter([](const Person&amp; p) { return p.age &gt;= 18; })
+    | std::views::transform([](const Person&amp; p) { return p.name; });</div>
+
+<p>Two operations, named, in order, with no intermediate container and no iterator bookkeeping. The filter keeps the adults, the transform pulls out the names, and the pipe threads one into the next. It reads as the sentence the task was stated in: from people, keep the adults, take their names. The loop hid the intent inside mechanics; the iterator version exposed the intent but taxed it heavily; the ranges version states it and stops.</p>
+
+<p>There is one honest wrinkle, and it is worth meeting head-on rather than hiding. That last <code class="cp-inline">adults</code> is not a vector. It is a lazy view, a description of work not yet done, and this is the single most important idea in all of ranges. Nothing has been filtered or extracted at the moment the expression is written. The next section is about what that means and why it is the source of nearly every advantage ranges have.</p>
+
+<h2>What Just Happened: Views, Pipes, and Laziness</h2>
+
+<p>The ranges version of the task named two operations and produced something that was not a vector. To see why that is the whole point rather than a curiosity, three pieces of machinery need names: what a range is, what the pipe was doing, and what it means that the result was lazy.</p>
+
+<p>Start with the range itself, because the definition is smaller than the word suggests. A range is anything that can say where it begins and where it ends, anything with a <code class="cp-inline">begin()</code> and an <code class="cp-inline">end()</code>. A raw array qualifies. So does a <code class="cp-inline">std::vector</code>, a <code class="cp-inline">std::string</code>, a <code class="cp-inline">std::map</code>. This is worth putting next to the model it replaces. For most of C++'s history the standard library talked about sequences as iterator pairs: an algorithm took two iterators, a begin and an end, and the caller spelled out both at every call site, which is exactly the ceremony that made the <code class="cp-inline">copy_if</code> version in the last section so heavy. A range folds those two loose ends back into a single thing. The vector already knows both, so the vector itself is the argument.</p>
+
+<p>Next, the two stages in the pipeline were view adaptors. A view adaptor takes a range and hands back a new range, without touching the original or copying its contents. <code class="cp-inline">std::views::filter</code> takes a range and a predicate and yields a view of the elements that pass. <code class="cp-inline">std::views::transform</code> takes a range and a function and yields a view where each element is that function applied. Two more round out the everyday set: <code class="cp-inline">std::views::take</code>, the first n elements, and <code class="cp-inline">std::views::drop</code>, all but the first n. Each takes a range and returns a range, and that single property is what lets them chain.</p>
+
+<p>The chaining is the pipe. Writing <code class="cp-inline">range | filter(pred) | transform(fn)</code> feeds the range into the filter and the filter's result into the transform, left to right, in the order the data flows. Anyone who has strung together shell commands with pipes already has the mental model, and the resemblance is not an accident.</p>
+
+<p>Now the idea that makes all of it more than tidier syntax. None of those adaptors did any work when the expression was written. A view adaptor does not walk its input. It builds a small object that remembers what it was asked to do and waits. When the adults pipeline was assigned, nothing was filtered and no name was extracted. That is lazy evaluation, and it is the single thing that separates ranges from a hand-rolled chain of loops.</p>
+
+<p>The work happens only when something pulls a value out the far end by iterating. Ask the pipeline for its first result and the request travels back up the chain: the transform asks the filter for an element, the filter asks the underlying range, the range yields one, the filter tests it and either passes it along or discards it and asks for the next, and eventually one value arrives at the transform to be reshaped and handed out. Ask for the second and the same walk happens again, one element deep, never building the whole intermediate sequence. Because nothing is ever collected in between, there is no intermediate container to allocate. The temporary vector the iterator version could not avoid simply has nowhere to come from.</p>
+
+<p>The animation below shows this as a conveyor belt that only moves when the far end is pulled. Nothing upstream happens until something downstream demands it.</p>
+
+<!-- ============================================================= -->
+<!-- PASTE YOUTUBE EMBED FOR THE MANIM LAZY-EVALUATION VIDEO HERE  -->
+<!-- Use the same embed method as your Mermaid post's videos.       -->
+<!-- ============================================================= -->
+ 
+
+<p>Laziness has one practical consequence worth stating now, because it will matter later: a view is a description, not a result. To turn it into a concrete container you have to walk it, which in C++20 means constructing a vector from its two iterators.</p>
+
+<div class="cp-code"><span class="cp-comment">// the adults view, finally materialized into a real vector</span>
+std::vector&lt;std::string&gt; result(adults.begin(), adults.end());
+<span class="cp-comment">// result now holds: Ada, Grace, Dennis</span></div>
+
+<p>That one line is where the work actually runs, the filter and the transform executing together in a single pass as the vector fills. It is also the one slightly awkward spelling in the whole story, and a later section shows how C++23 smooths it away. For now the important thing is the shape of the idea: compose lazily, materialize once, allocate nothing in between.</p>
+
+<h2>Why It Matters</h2>
+
+<p>The three versions of the adults task were not just stylistic variations. The ranges version was better along four separate axes, and it is worth naming them, because each one shows up again in every pipeline worth writing.</p>
+
+<p>The first is intent over mechanism. The raw loop described a procedure and left the goal to be inferred. The ranges version stated the goal and let the procedure disappear. That gap matters most to the person reading the code six months later, who is usually the person who wrote it.</p>
+
+<p>The second is composition. The iterator version showed the problem in miniature: two operations meant one intermediate container and twice the ceremony, because iterator-pair algorithms do not chain. Add a third operation and it is a third temporary and a third pair of loops. Cost grows with every stage. Ranges keep it flat, because composition is what the pipe is for.</p>
+
+<p>The third is the silent allocation tax. Every intermediate container is a heap allocation nobody asked for by name. One is invisible. Inside a loop that runs a multi-stage pipeline thousands of times, they pile up quietly and never announce themselves in the code. Lazy evaluation removes them by never creating the intermediates in the first place.</p>
+
+<p>The fourth is vocabulary. Once a team reads <code class="cp-inline">filter | transform | take</code> fluently, a pipeline is legible at a glance. Without that shared vocabulary, every pipeline has to be decoded one loop body at a time, which is the tax the very first version quietly charged.</p>
+
+<p>None of these is dramatic on its own, and on a five-element list none of them matters at all. They matter because real code is not a five-element list. It is a large input run through several stages, many times, and that is precisely the shape the next section turns to.</p>
+
+<h2>A Real Pipeline</h2>
+
+<p>The adults task was small on purpose. Real pipeline code has more stages, a heavier element type, and runs at a scale where the allocation tax stops being theoretical. So here is a realistic one, the example this post will finish on. Picture a signal trace log, the kind that falls out of a simulation run or a hardware capture: a flat sequence of events, each a small record of something that happened on a signal at a moment in time.</p>
+
+<div class="cp-code">struct TraceEvent {
+    int         timestamp;
+    std::string signal_name;
+    int         value;
+    bool        is_bus_transaction;
+};</div>
+
+<p>The job is to pull one story out of the noise: every read on the bus, inside a chosen time window, reduced to how much the value moved from one bus event to the next. Four stages. Keep the bus transactions. Keep the events inside the window. Extract the value from each. Then take the delta between consecutive values. It is the adults task again, filter then extract, but with two filters instead of one and a final stage that needs each element paired with its predecessor.</p>
+
+<p>Written the old way, that is four loops and three intermediate vectors, each allocated only to feed the next. Written as a ranges pipeline, the first three stages compose into one lazy expression that allocates nothing until it is materialized.</p>
+
+<div class="cp-code">std::vector&lt;int&gt; deltas(const std::vector&lt;TraceEvent&gt;&amp; trace,
+                       int t_lo, int t_hi) {
+    auto values = trace
+        | std::views::filter([](const TraceEvent&amp; e) {
+              return e.is_bus_transaction;
+          })
+        | std::views::filter([&amp;](const TraceEvent&amp; e) {
+              return e.timestamp &gt;= t_lo &amp;&amp; e.timestamp &lt;= t_hi;
+          })
+        | std::views::transform([](const TraceEvent&amp; e) {
+              return e.value;
+          });
+
+    <span class="cp-comment">// materialize once, then delta consecutive pairs</span>
+    std::vector&lt;int&gt; v(values.begin(), values.end());
+    std::vector&lt;int&gt; d;
+    for (std::size_t i = 1; i &lt; v.size(); ++i)
+        d.push_back(v[i] - v[i - 1]);
+    return d;
+}</div>
+
+<p>The two filters read as exactly what they are, the transform pulls out the value field, and the pipe threads them in the order the data flows, the same shape as the adults pipeline scaled up by one stage. The delta step stays a manual loop, and that is worth being honest about: deltas need each element paired with the one before it, which wants a pairwise-adjacent view that C++20 does not ship. The caveats section returns to it. The toggle below puts the fully manual version and the ranges version side by side, on the same data, so the contrast can be read in place.</p>
+
+<div class="cp-w1">
+<style>
+.cp-w1 { font-family: inherit; margin: 1.6em 0; }
+.cp-w1 * { box-sizing: border-box; }
+.cp-w1 .w1-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.cp-w1 .w1-seg { display: inline-flex; border: 1px solid #cdd2da; border-radius: 8px; overflow: hidden; }
+.cp-w1 .w1-seg button { border: none; background: transparent; padding: 7px 14px; font-size: 13px; font-family: inherit; color: #5b636e; cursor: pointer; }
+.cp-w1 .w1-seg button.on { background: #e7f3f2; color: #0f7d7d; font-weight: 600; }
+.cp-w1 .w1-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #5b636e; cursor: pointer; margin-left: auto; }
+.cp-w1 .w1-code { background: #f4f5f7; border: 1px solid #e2e5ea; border-radius: 10px; padding: 14px 16px; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.55; color: #1f2937; white-space: pre; margin: 0; }
+.cp-w1 .w1-cmt { color: #7a828d; font-style: italic; }
+.cp-w1 .w1-alloc { display: block; border-radius: 4px; transition: background 0.15s; }
+.cp-w1 .w1-alloc.lit { background: #fbe9cf; }
+.cp-w1 .w1-meta { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.cp-w1 .w1-stat { background: #f6f7f9; border: 1px solid #e2e5ea; border-radius: 8px; padding: 8px 12px; }
+.cp-w1 .w1-stat .k { font-size: 12px; color: #5b636e; }
+.cp-w1 .w1-stat .v { font-size: 18px; font-weight: 600; color: #2b2f36; }
+</style>
+<div class="w1-controls">
+  <div class="w1-seg" id="w1seg">
+    <button data-v="old" class="on" type="button">Old way</button>
+    <button data-v="new" type="button">Ranges</button>
+  </div>
+  <label class="w1-toggle"><input type="checkbox" id="w1hl"> highlight heap allocations</label>
+</div>
+<pre class="w1-code" id="w1old"><span class="w1-alloc" data-a>  <span class="w1-cmt">// Stage 1: keep only bus transactions</span>
+  std::vector&lt;TraceEvent&gt; bus;</span>
+  for (const auto&amp; e : trace)
+    if (e.is_bus_transaction) bus.push_back(e);
+
+<span class="w1-alloc" data-a>  <span class="w1-cmt">// Stage 2: keep only events in the window</span>
+  std::vector&lt;TraceEvent&gt; windowed;</span>
+  for (const auto&amp; e : bus)
+    if (e.timestamp &gt;= t_lo &amp;&amp; e.timestamp &lt;= t_hi)
+      windowed.push_back(e);
+
+<span class="w1-alloc" data-a>  <span class="w1-cmt">// Stage 3: extract the value field</span>
+  std::vector&lt;int&gt; values;</span>
+  for (const auto&amp; e : windowed)
+    values.push_back(e.value);
+
+  <span class="w1-cmt">// Stage 4: deltas between consecutive values</span>
+  std::vector&lt;int&gt; deltas;
+  for (std::size_t i = 1; i &lt; values.size(); ++i)
+    deltas.push_back(values[i] - values[i - 1]);
+
+  return deltas;</pre>
+<pre class="w1-code" id="w1new" style="display:none;">  auto values = trace
+    | std::views::filter([](const TraceEvent&amp; e) {
+          return e.is_bus_transaction;
+      })
+    | std::views::filter([&amp;](const TraceEvent&amp; e) {
+          return e.timestamp &gt;= t_lo &amp;&amp; e.timestamp &lt;= t_hi;
+      })
+    | std::views::transform([](const TraceEvent&amp; e) {
+          return e.value;
+      });
+
+<span class="w1-alloc" data-a>  <span class="w1-cmt">// one materialization, walked lazily</span>
+  std::vector&lt;int&gt; v(values.begin(), values.end());</span>
+
+  <span class="w1-cmt">// Stage 4: deltas between consecutive values</span>
+  std::vector&lt;int&gt; deltas;
+  for (std::size_t i = 1; i &lt; v.size(); ++i)
+    deltas.push_back(v[i] - v[i - 1]);
+
+  return deltas;</pre>
+<div class="w1-meta">
+  <div class="w1-stat"><div class="k">intermediate heap allocations</div><div class="v" id="w1alloc">3</div></div>
+  <div class="w1-stat"><div class="k">result</div><div class="v" style="font-family:ui-monospace,Menlo,Consolas,monospace;">{ 4, 7 }</div></div>
+</div>
+<script>
+(function(){
+  var root = document.currentScript.closest('.cp-w1');
+  var seg = root.querySelector('#w1seg');
+  var oldP = root.querySelector('#w1old');
+  var newP = root.querySelector('#w1new');
+  var hl = root.querySelector('#w1hl');
+  var allocN = root.querySelector('#w1alloc');
+  var cur = 'old';
+  function apply(){
+    oldP.style.display = cur === 'old' ? 'block' : 'none';
+    newP.style.display = cur === 'new' ? 'block' : 'none';
+    allocN.textContent = cur === 'old' ? '3' : '0';
+    var pane = cur === 'old' ? oldP : newP;
+    var items = pane.querySelectorAll('[data-a]');
+    for (var i = 0; i < items.length; i++){
+      items[i].className = hl.checked ? 'w1-alloc lit' : 'w1-alloc';
+    }
+  }
+  var btns = seg.querySelectorAll('button');
+  for (var i = 0; i < btns.length; i++){
+    btns[i].addEventListener('click', function(){
+      for (var j = 0; j < btns.length; j++) btns[j].classList.remove('on');
+      this.classList.add('on');
+      cur = this.getAttribute('data-v');
+      apply();
+    });
+  }
+  hl.addEventListener('change', apply);
+  apply();
+})();
+</script>
+</div>
+
+<p>Toggle the highlight and the three intermediate vectors in the old version light up, the exact allocations the ranges version never makes. Both compute the same result from the same trace: bus values of 47, 51, and 58 inside the window, giving deltas of 4 and 7.</p>
+
+<h2>What the Compiler Sees</h2>
+
+<p>Ranges make a performance claim, and it is worth stating precisely, because it is narrower than the enthusiasm around it sometimes suggests. The claim is not that ranges are faster. It is that lazy evaluation removes a specific, measurable cost the manual pipeline pays: the intermediate heap allocation after every stage.</p>
+
+<p>The manual trace pipeline allocated three vectors, and copied the surviving data twice as it moved down the chain, each intermediate existing only to feed the next stage before being discarded. The ranges pipeline allocates none of that. The composed view holds no elements. It is walked once, at the single materialization, and the intermediates are never created because there are no intermediate results to hold.</p>
+
+<p>The honest qualification: removing allocations is not the same as being faster in every case. A view's iteration has its own overhead, a compiler's ability to inline a chain of adaptors varies, and for a short pipeline run once on small input the difference is usually noise. Where it matters, and matters a lot, is the shape this post keeps returning to: a multi-stage pipeline run many times over a large input, inside a test bench loop or a signal-processing pass. There the allocation the old way pays on every iteration is pure overhead the ranges version never incurs, and it hides from a casual reading because no line of code names it.</p>
+
+<p>The visualizer makes the scaling visible. Toggle stages on and off. The manual approach's allocation count climbs one per stage; the ranges approach stays flat at zero, no matter how long the chain.</p>
+
+<div class="cp-w2">
+<style>
+.cp-w2 { font-family: inherit; margin: 1.6em 0; }
+.cp-w2 * { box-sizing: border-box; }
+.cp-w2 .stages { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.cp-w2 .stage { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e2e5ea; border-radius: 8px; background: #f6f7f9; cursor: pointer; }
+.cp-w2 .stage.off { opacity: 0.45; }
+.cp-w2 .stage .nm { font-size: 14px; color: #2b2f36; }
+.cp-w2 .stage .cd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: #5b636e; margin-left: auto; }
+.cp-w2 .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cp-w2 .card { border-radius: 12px; padding: 14px 16px; border: 1px solid #e2e5ea; }
+.cp-w2 .card.man { background: #fbf3e6; border-color: #f0dcae; }
+.cp-w2 .card.rng { background: #e7f3f2; border-color: #bfe3da; }
+.cp-w2 .card .lab { font-size: 12px; margin-bottom: 6px; }
+.cp-w2 .card.man .lab { color: #854f0b; }
+.cp-w2 .card.rng .lab { color: #0f6e56; }
+.cp-w2 .card .big { font-size: 34px; font-weight: 600; line-height: 1; }
+.cp-w2 .card.man .big { color: #633806; }
+.cp-w2 .card.rng .big { color: #04342c; }
+.cp-w2 .card .sub { font-size: 12px; margin-top: 6px; }
+.cp-w2 .card.man .sub { color: #854f0b; }
+.cp-w2 .card.rng .sub { color: #0f6e56; }
+@media (max-width: 480px) { .cp-w2 .cards { grid-template-columns: 1fr; } }
+</style>
+<div class="stages" id="w2stages">
+  <label class="stage"><input type="checkbox" checked><span class="nm">Filter: bus transactions</span><span class="cd">views::filter</span></label>
+  <label class="stage"><input type="checkbox" checked><span class="nm">Filter: time window</span><span class="cd">views::filter</span></label>
+  <label class="stage"><input type="checkbox" checked><span class="nm">Transform: extract value</span><span class="cd">views::transform</span></label>
+  <label class="stage"><input type="checkbox"><span class="nm">Take: first N</span><span class="cd">views::take</span></label>
+  <label class="stage"><input type="checkbox"><span class="nm">Transform: scale</span><span class="cd">views::transform</span></label>
+</div>
+<div class="cards">
+  <div class="card man">
+    <div class="lab">manual loops + intermediate vectors</div>
+    <div class="big" id="w2man">3</div>
+    <div class="sub" id="w2mansub">3 heap allocations, one per stage</div>
+  </div>
+  <div class="card rng">
+    <div class="lab">ranges pipeline (lazy)</div>
+    <div class="big" id="w2rng">0</div>
+    <div class="sub">intermediate allocations, always</div>
+  </div>
+</div>
+<script>
+(function(){
+  var root = document.currentScript.closest('.cp-w2');
+  var boxes = root.querySelectorAll('#w2stages input');
+  var man = root.querySelector('#w2man');
+  var manSub = root.querySelector('#w2mansub');
+  function update(){
+    var n = 0;
+    for (var i = 0; i < boxes.length; i++){
+      var st = boxes[i].closest('.stage');
+      if (boxes[i].checked){ n++; st.classList.remove('off'); }
+      else { st.classList.add('off'); }
+    }
+    man.textContent = n;
+    manSub.textContent = n + (n === 1 ? ' heap allocation' : ' heap allocations') + ', one per stage';
+  }
+  for (var i = 0; i < boxes.length; i++) boxes[i].addEventListener('change', update);
+  update();
+})();
+</script>
+</div>
+<p class="cp-widget-caption">The one-allocation-per-stage count models the straightforward manual pipeline. A determined programmer can hand-fuse the manual loops to cut allocations too, but that takes deliberate effort and buries the intent. Ranges give you the fused, zero-intermediate version by default.</p>
+
+<h2>Beyond Views: Algorithms and Projections</h2>
+
+<p>Views are the part of ranges that gets attention, but they are only half of what C++20 added. The other half is a full set of range-aware algorithms in the <code class="cp-inline">std::ranges</code> namespace, mirroring the classic ones. Instead of <code class="cp-inline">std::sort(v.begin(), v.end())</code> there is <code class="cp-inline">std::ranges::sort(v)</code>, and the same for <code class="cp-inline">std::ranges::find_if</code>, <code class="cp-inline">std::ranges::any_of</code>, <code class="cp-inline">std::ranges::count_if</code>, and the rest. Each takes a range directly, so the iterator-pair ceremony disappears at every call site, not just in pipelines.</p>
+
+<p>The quiet standout is projections. Most range algorithms accept an extra argument that says which part of each element to look at. Rather than writing a comparator that reaches into a field, the field is named directly. Sorting the trace by timestamp shows it plainly.</p>
+
+<div class="cp-code"><span class="cp-comment">// comparator lambda: easy to get the direction backwards</span>
+std::sort(events.begin(), events.end(),
+          [](const TraceEvent&amp; a, const TraceEvent&amp; b) {
+              return a.timestamp &lt; b.timestamp;
+          });
+
+<span class="cp-comment">// projection: name the field, let sort do the rest</span>
+std::ranges::sort(events, {}, &amp;TraceEvent::timestamp);</div>
+
+<p>The second form says what it means. The empty braces are the default less-than, and the pointer-to-member names the field to compare on. There is no lambda body to read, and no lambda body in which to accidentally invert the comparison or compare the wrong field. A whole small category of bugs is removed by not writing the code that would contain it. Projections work across the algorithm set, so finding the first bus transaction or counting events on one signal reads just as directly.</p>
+
+<div class="cp-code"><span class="cp-comment">// first event on the bus, by projecting the flag</span>
+auto it = std::ranges::find(events, true, &amp;TraceEvent::is_bus_transaction);
+
+<span class="cp-comment">// how many events belong to one signal</span>
+auto n = std::ranges::count(events, "data_bus", &amp;TraceEvent::signal_name);</div>
+
+<p>None of this is dramatic, and that is the appeal. Projections quietly delete a recurring source of error and compose with everything else. Together with views, most of the everyday work of filtering, transforming, searching, and sorting can be written in terms of what is wanted rather than how to walk the container to get it.</p>
+
+<h2>The Caveats (Be Honest)</h2>
+
+<p>Everything so far has been a case for ranges. A fair account has to include where the C++20 version bites, because it does, and knowing the edges in advance is the difference between reaching for ranges confidently and getting burned on the first try.</p>
+
+<p>The first and most notorious is the error messages. When a range expression violates a concept constraint, the compiler does not point at the mistake in a sentence. It unspools a wall of nested template names, often hundreds of lines, with the actual cause buried in the middle. A misplaced <code class="cp-inline">const</code>, a lambda returning the wrong type, a view used where a stricter concept was required, any of these can fill the screen with types nobody wrote by hand. Newer compilers improve this, but on a C++20 toolchain it remains the sharpest edge.</p>
+
+<p>Closely related is the cost of <code class="cp-inline">auto</code>. Range expressions lean on it heavily, because the real type of a composed view is an unspeakable nest of templates. That keeps the code readable, but it also means the type is invisible at the call site, and when something goes wrong the debugger shows the same nest the error message did. <code class="cp-inline">auto</code> is what makes ranges pleasant to write and, occasionally, unpleasant to diagnose.</p>
+
+<p>There are sharper functional edges too. Some views are not copyable, which surprises people who expect to store one or pass it around like a value. And ranges can be infinite: <code class="cp-inline">std::views::iota</code> with no upper bound is legitimate and useful, right up until it flows into an algorithm that walks to the end. Forget to cap it with <code class="cp-inline">take</code> and the program does not error, it simply runs forever.</p>
+
+<div class="cp-code"><span class="cp-comment">// an unbounded range: fine on its own, dangerous unguarded</span>
+auto naturals = std::views::iota(1);           <span class="cp-comment">// 1, 2, 3, ...</span>
+
+<span class="cp-comment">// this never terminates</span>
+<span class="cp-comment">// for (int x : naturals) sum += x;</span>
+
+<span class="cp-comment">// this does: take makes it finite</span>
+for (int x : naturals | std::views::take(10)) sum += x;</div>
+
+<p>The last caveat showed up in this post's own code: the awkward two-iterator line used to materialize a view into a vector. C++20 gave the views and the algorithms but no clean way to pour a view back into a container. C++23 fixes exactly this with <code class="cp-inline">std::ranges::to</code>.</p>
+
+<div class="cp-code"><span class="cp-comment">// C++20: the workaround used earlier</span>
+std::vector&lt;int&gt; v(view.begin(), view.end());
+
+<span class="cp-comment">// C++23: the missing piece arrives</span>
+auto v = view | std::ranges::to&lt;std::vector&gt;();</div>
+
+<p>None of this is a reason to avoid ranges. It is a reason to go in with clear eyes. This is version 1.0 of a genuinely good idea, shipped a little rough at the edges, with the roughest already being sanded down in the next standard. Knowing where it bites just means the bites do not come as a surprise.</p>
+
+<h2>Where to Reach First</h2>
+
+<p>So where does this leave a codebase that has run fine for twenty years? Not facing a rewrite campaign. Nothing working needs to be torn out and re-expressed in ranges, and doing so would buy little while risking plenty.</p>
+
+<p>The place ranges earn their keep is new code, and specifically code shaped like the pipeline in this post: data flowing through a chain of filters and transforms. That shape turns up constantly. Log filtering pipelines. Event stream processing. Test bench data wrangling, where a large trace gets sliced and reshaped on every iteration of a sweep. Signal analysis utilities that pull one series out of many. These are exactly where the readability holds up and the eliminated allocations add up.</p>
+
+<p>Not everything, and not all at once. Just the next pipeline, written as a pipeline instead of as four loops and three throwaway vectors. The discipline that kept the compiler floor low for so long was never the enemy; it was the reason the systems lasted long enough for the floor to rise underneath them. Now that it has, the sensible move is the small one: reach for ranges the next time the shape of the problem calls for them, and let the old code keep doing what it has done reliably for two decades.</p>
+
+<h2>The Full Program</h2>
+
+<p>Everything comes together in one file. It defines <code class="cp-inline">TraceEvent</code>, builds a synthetic trace, runs the pipeline, and prints the surviving values alongside the deltas. It compiles with nothing more than a C++20 compiler and the standard library, and prints the same 47, 51, 58 and the deltas 4 and 7 the post has carried throughout.</p>
+
+<div class="cp-code">#include &lt;iostream&gt;
+#include &lt;vector&gt;
+#include &lt;string&gt;
+#include &lt;ranges&gt;
+#include &lt;algorithm&gt;
+
+struct TraceEvent {
+    int         timestamp;
+    std::string signal_name;
+    int         value;
+    bool        is_bus_transaction;
+};
+
+std::vector&lt;int&gt; deltas(const std::vector&lt;TraceEvent&gt;&amp; trace,
+                       int t_lo, int t_hi) {
+    auto values = trace
+        | std::views::filter([](const TraceEvent&amp; e) {
+              return e.is_bus_transaction;
+          })
+        | std::views::filter([&amp;](const TraceEvent&amp; e) {
+              return e.timestamp &gt;= t_lo &amp;&amp; e.timestamp &lt;= t_hi;
+          })
+        | std::views::transform([](const TraceEvent&amp; e) {
+              return e.value;
+          });
+
+    <span class="cp-comment">// One materialization. In C++23: values | std::ranges::to&lt;std::vector&gt;()</span>
+    std::vector&lt;int&gt; v(values.begin(), values.end());
+    std::vector&lt;int&gt; d;
+    for (std::size_t i = 1; i &lt; v.size(); ++i)
+        d.push_back(v[i] - v[i - 1]);
+    return d;
+}
+
+int main() {
+    std::vector&lt;TraceEvent&gt; trace = {
+        { 100, "clk",      0,  false },
+        { 105, "data_bus", 42, true  },
+        { 110, "clk",      1,  false },
+        { 115, "data_bus", 47, true  },
+        { 120, "irq",      1,  false },
+        { 125, "data_bus", 51, true  },
+        { 130, "data_bus", 58, true  },
+        { 135, "clk",      0,  false },
+    };
+
+    const int t_lo = 112, t_hi = 132;
+
+    auto surviving = trace
+        | std::views::filter([](const TraceEvent&amp; e) { return e.is_bus_transaction; })
+        | std::views::filter([&amp;](const TraceEvent&amp; e) {
+              return e.timestamp &gt;= t_lo &amp;&amp; e.timestamp &lt;= t_hi;
+          })
+        | std::views::transform([](const TraceEvent&amp; e) { return e.value; });
+
+    std::cout &lt;&lt; "surviving bus values in [" &lt;&lt; t_lo &lt;&lt; ", " &lt;&lt; t_hi &lt;&lt; "]:";
+    for (int val : surviving) std::cout &lt;&lt; ' ' &lt;&lt; val;
+    std::cout &lt;&lt; '\n';
+
+    std::cout &lt;&lt; "deltas:";
+    for (int x : deltas(trace, t_lo, t_hi)) std::cout &lt;&lt; ' ' &lt;&lt; x;
+    std::cout &lt;&lt; '\n';
+
+    return 0;
+}
+
+<span class="cp-comment">/* expected output:
+   surviving bus values in [112, 132]: 47 51 58
+   deltas: 4 7
+*/</span></div>
+
+<p style="margin-top: 1.2em;">
+  <a href="https://github.com/yajnas07/codepuz/blob/main/ranges/trace_pipeline.cpp" style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.95em;">View source on GitHub &rarr;</a>
+</p>
+<p class="cp-widget-caption">Compiles with <code class="cp-inline">g++ -std=c++20 trace_pipeline.cpp</code>. Tested on GCC 11 and later.</p>
+
+<h2>Bonus Reads: Ranges in the Wild</h2>
+
+<p>The pipeline here is one shape ranges take, but the toolbox is wider. For readers who would rather learn from code than prose, five short, self-contained programs, each compilable on its own, each demonstrating one capability this post only brushed against. They are meant to be read and run, so the commentary is one line each.</p>
+
+<ul>
+<li><strong>Lazy infinite sequences.</strong> An unbounded integer stream, filtered to primes and capped with <code class="cp-inline">take</code>. Proof that "nothing computes until you pull" is useful, not just safe. (C++20)</li>
+<li><strong>Splitting and joining strings.</strong> A CSV line taken apart with <code class="cp-inline">views::split</code> and stitched back with <code class="cp-inline">views::join_with</code>, no index arithmetic. (C++20)</li>
+<li><strong>Indexed iteration.</strong> Index and element together by zipping against <code class="cp-inline">iota</code>, the pattern <code class="cp-inline">views::enumerate</code> formalizes in C++23. (uses <code class="cp-inline">views::zip</code>, C++23)</li>
+<li><strong>Windowed processing.</strong> A moving average over consecutive elements with <code class="cp-inline">views::slide</code>, the pairwise-adjacent view the delta stage wished it had. (C++23)</li>
+<li><strong>Pipelines as values.</strong> A <code class="cp-inline">filter | transform</code> chain stored in a variable and reused across inputs, making "ranges as vocabulary" concrete. (C++23)</li>
+</ul>
+
+<p style="margin-top: 1em;">
+  <a href="https://github.com/yajnas07/codepuz/tree/main/ranges/examples" style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.95em;">Browse the examples on GitHub &rarr;</a>
+</p>
+
+</div>
