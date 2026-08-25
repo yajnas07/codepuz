@@ -17,6 +17,14 @@ BLUE     = "#4a90d9"
 ORANGE   = "#e8913a"
 PURPLE   = "#a87bdb"
 
+
+def _scene_label(scene, text):
+    """Add a persistent bottom-left scene label."""
+    lbl = Text(text, font="monospace", font_size=24, color="#74b860")
+    lbl.set_opacity(0.7).to_corner(DL, buff=0.25)
+    scene.add(lbl)
+    return lbl
+
 # ---- narration lines ----
 LINES = {
     "views_intro": (
@@ -125,6 +133,7 @@ class RangesViewsPipeline(VoiceoverScene):
 
         watermark = make_watermark()
         self.add(watermark)
+        _scene_label(self, "Lazy range adaptors")
 
         # ---- title ----
         title = Text("Views & Pipe Operator", font="monospace",

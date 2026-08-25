@@ -17,6 +17,14 @@ SURF     = "#2a2a27"
 BLUE     = "#4a90d9"
 ORANGE   = "#e8913a"
 
+
+def _scene_label(scene, text):
+    """Add a persistent bottom-left scene label."""
+    lbl = Text(text, font="monospace", font_size=24, color="#74b860")
+    lbl.set_opacity(0.7).to_corner(DL, buff=0.25)
+    scene.add(lbl)
+    return lbl
+
 # ---- narration lines ----
 LINES = {
     # Scene 7: ranges::min / max / minmax
@@ -111,6 +119,7 @@ class RangesMinMax(VoiceoverScene):
 
         watermark = make_watermark()
         self.add(watermark)
+        _scene_label(self, "Find extremes")
 
         # ---- title ----
         title = Text("std::ranges::min / max / minmax", font="monospace",
@@ -382,6 +391,7 @@ class RangesReverse(VoiceoverScene):
 
         watermark = make_watermark()
         self.add(watermark)
+        _scene_label(self, "Reverse a range")
 
         # ---- title ----
         title = Text("std::ranges::reverse", font="monospace",

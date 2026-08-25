@@ -17,6 +17,14 @@ SURF     = "#2a2a27"
 BLUE     = "#4a90d9"
 ORANGE   = "#e8913a"
 
+
+def _scene_label(scene, text):
+    """Add a persistent bottom-left scene label."""
+    lbl = Text(text, font="monospace", font_size=24, color="#74b860")
+    lbl.set_opacity(0.7).to_corner(DL, buff=0.25)
+    scene.add(lbl)
+    return lbl
+
 # ---- narration lines ----
 LINES = {
     # Scene 11: ranges::fill
@@ -101,6 +109,7 @@ class RangesFill(VoiceoverScene):
 
         watermark = make_watermark()
         self.add(watermark)
+        _scene_label(self, "Fill with a value")
 
         # ---- title ----
         title = Text("std::ranges::fill", font="monospace",
@@ -194,6 +203,7 @@ class RangesGenerate(VoiceoverScene):
 
         watermark = make_watermark()
         self.add(watermark)
+        _scene_label(self, "Generate values")
 
         # ---- title ----
         title = Text("std::ranges::generate", font="monospace",

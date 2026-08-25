@@ -17,6 +17,14 @@ BLUE     = "#4a90d9"
 ORANGE   = "#e8913a"
 PURPLE   = "#a87bdb"
 
+
+def _scene_label(scene, text):
+    """Add a persistent bottom-left scene label."""
+    lbl = Text(text, font="monospace", font_size=24, color="#74b860")
+    lbl.set_opacity(0.7).to_corner(DL, buff=0.25)
+    scene.add(lbl)
+    return lbl
+
 # ---- narration lines ----
 LINES = {
     "proj_intro": (
@@ -143,6 +151,7 @@ class RangesProjections(VoiceoverScene):
 
         watermark = make_watermark()
         self.add(watermark)
+        _scene_label(self, "Sort by a member")
 
         # ---- title ----
         title = Text("Projections", font="monospace",

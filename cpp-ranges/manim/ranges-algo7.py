@@ -17,6 +17,14 @@ SURF     = "#2a2a27"
 BLUE     = "#4a90d9"
 ORANGE   = "#e8913a"
 
+
+def _scene_label(scene, text):
+    """Add a persistent bottom-left scene label."""
+    lbl = Text(text, font="monospace", font_size=24, color="#74b860")
+    lbl.set_opacity(0.7).to_corner(DL, buff=0.25)
+    scene.add(lbl)
+    return lbl
+
 # ---- narration lines ----
 LINES = {
     # Scene 15: ranges::is_sorted
@@ -116,6 +124,7 @@ class RangesIsSorted(VoiceoverScene):
 
         watermark = make_watermark()
         self.add(watermark)
+        _scene_label(self, "Check if sorted")
 
         # ---- title ----
         title = Text("std::ranges::is_sorted", font="monospace",
@@ -265,6 +274,7 @@ class RangesBinarySearch(VoiceoverScene):
 
         watermark = make_watermark()
         self.add(watermark)
+        _scene_label(self, "Binary search")
 
         # ---- title ----
         title = Text("std::ranges::binary_search", font="monospace",

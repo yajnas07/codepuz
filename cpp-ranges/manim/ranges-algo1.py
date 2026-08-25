@@ -3,10 +3,10 @@ from manim_voiceover import VoiceoverScene
 from edge_service import EdgeTTSService
 
 
-# manim render -pql ranges-algo.py RangesSort
-# manim render -pql ranges-algo.py RangesFind
-# manim render -pql ranges-algo.py RangesCount
-# manim render -pql ranges-algo.py RangesTransform
+# manim render -pql ranges-algo1.py RangesSort
+# manim render -pql ranges-algo1.py RangesFind
+# manim render -pql ranges-algo1.py RangesCount
+# manim render -pql ranges-algo1.py RangesTransform
 
 # ---- colour palette (matching sample.py) ----
 INK      = "#1a1a18"
@@ -19,6 +19,14 @@ GREY     = "#7a7875"
 SURF     = "#2a2a27"
 BLUE     = "#4a90d9"
 ORANGE   = "#e8913a"
+
+
+def _scene_label(scene, text):
+    """Add a persistent bottom-left scene label."""
+    lbl = Text(text, font="monospace", font_size=24, color="#74b860")
+    lbl.to_corner(DL, buff=0.25)
+    scene.add(lbl)
+    return lbl
 
 # ---- narration lines ----
 LINES = {
@@ -146,6 +154,7 @@ class RangesSort(VoiceoverScene):
                          color="#ffffff", weight=NORMAL)
         watermark.set_opacity(0.35).to_corner(DR, buff=0.25)
         self.add(watermark)
+        _scene_label(self, "Sort a container")
 
         # ---- title ----
         title = Text("std::ranges::sort", font="monospace",
@@ -229,7 +238,7 @@ class RangesSort(VoiceoverScene):
             new_code.move_to(RIGHT * 3 + UP * 0.3)
 
             vs_text = Text("vs", font="monospace", color=GREY, font_size=24)
-            vs_text.move_to(ORIGIN + UP * 0.3)
+            vs_text.move_to(ORIGIN + RIGHT * 0.45 + UP * 0.3)
 
             cross = Cross(stroke_color=RED, stroke_width=4).scale(0.3)
             cross.next_to(old_code, DOWN, buff=0.3)
@@ -267,6 +276,7 @@ class RangesFind(VoiceoverScene):
                          color="#ffffff", weight=NORMAL)
         watermark.set_opacity(0.35).to_corner(DR, buff=0.25)
         self.add(watermark)
+        _scene_label(self, "Find an element")
 
         # ---- title ----
         title = Text("std::ranges::find / find_if", font="monospace",
@@ -425,8 +435,10 @@ class RangesFind(VoiceoverScene):
         self.play(FadeIn(table[1]))
         self.wait(2)
 
-        self.play(*[FadeOut(m) for m in self.mobjects if m != watermark])
-        self.wait(0.5)
+        # self.play(*[FadeOut(m) for m in self.mobjects if m != watermark])
+        #clear screen
+        self.clear()
+        self.wait(1.0)
 def is_prime(n):
     """Check if n is prime."""
     if n <= 1:
@@ -449,6 +461,7 @@ class RangesCount(VoiceoverScene):
                          color="#ffffff", weight=NORMAL)
         watermark.set_opacity(0.35).to_corner(DR, buff=0.25)
         self.add(watermark)
+        _scene_label(self, "Count matching elements")
 
         # ---- title ----
         title = Text("std::ranges::count_if", font="monospace",
@@ -616,6 +629,7 @@ class RangesTransform(VoiceoverScene):
                          color="#ffffff", weight=NORMAL)
         watermark.set_opacity(0.35).to_corner(DR, buff=0.25)
         self.add(watermark)
+        _scene_label(self, "Transform elements")
 
         # ---- title ----
         title = Text("std::ranges::transform", font="monospace",
