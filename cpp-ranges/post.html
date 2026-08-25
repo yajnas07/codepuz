@@ -150,13 +150,14 @@ body {
 
 <h1>Raw Loops to Ranges</h1>
 
-<p>This is a journey from raw for loops to ranges, told through a single piece of C++. It starts where a great deal of C++ starts: a flat vector, a few nested loops, and a stack of intermediate containers that exist only to feed the next loop in line. It ends with the same work written as one composed C++20 ranges pipeline that allocates nothing in between. The worthwhile part is the road connecting those two points, and what each step along it reveals about why ranges were worth waiting for.</p>
+<p>Most C++ code does not begin with elegant abstractions. It begins with simple loops and a problem to solve. It starts where a great deal of C++ starts: a flat vector, a few nested loops, and a stack of intermediate containers that exist only to feed the next loop in line. As the code grows, patterns emerge, abstractions appear, and the language offers better ways to express intent. One such addition is C++20 ranges, which is what this post explores.</p>
 
-<p>And there was a wait. In a large engineering organization, the compiler is not really anyone's to choose. It is a shared contract. Every team, every internal library, every third-party product linked into the build carries an opinion about which language standard may cross the boundary, and the answer settles at the same place every time: whatever the most conservative party in the room can support. On a hybrid platform stitched together from components built inside and outside the company, that place is the lowest common denominator, and it tends to stay put for years.</p>
+<p>And there are many reasons why it took so long to become practical in production code. In any reasonably sized engineering organization, the choice of compiler is rarely driven by a single team. ABI compatibility requirements, toolchain support, third-party dependencies, and long-term maintenance concerns all have a say, and the lowest common denominator often wins. It is a shared contract. Every team, every internal library, and every third-party product linked into the build supports a particular set of compiler versions, and the binaries produced by all of them must continue to link and run together reliably.</p>
 
-<p>It would be easy to file this under complaint. It is not one. That discipline is the reason systems built two decades ago still boot, still ship, and still pay the bills. Refusing to scatter bleeding-edge language features across a codebase that has to outlive any single engineer's tenure is not timidity, it is the kind of restraint that keeps large systems alive long enough to become load-bearing. There is a badge of honor in it, and the badge is earned.</p>
+<p>For example, on the hybrid platforms we build at Cadence, models and IP from different sources are integrated into a single environment. Those components must work not only with each other, but also across multiple verification tools and hardware configurations that we support. Moving the entire ecosystem forward is therefore a coordinated effort, not a local decision.</p>
 
-<p>But something has shifted. The floor is finally rising. The baseline that every party in the ecosystem can agree on has crept upward, and a whole shelf of tools that used to sit out of reach is now quietly available. Nothing needs to be rewritten to take advantage of it. The next thing written just gets to be better than the last.</p>
+<p>These constraints are often what separate college-level software from production software that must survive and evolve over many years. That discipline is the reason systems built two decades ago still boot, still ship, and still pay the bills. Refusing to scatter bleeding-edge language features across a codebase that has to outlive any single engineer's tenure is not timidity. It is the kind of restraint that keeps large systems alive long enough to become load-bearing.</p>
+ <p>But tools do move, slowly and inevitably. Support for older operating systems and compilers eventually gets dropped, and those shifts often create both the need and the opportunity to move an entire ecosystem forward. As compilers, libraries, and tooling evolve together, the baseline rises. Being able to use C++20 in production code is now a practical reality for many of us, and that is what inspired this post</p>
 
 <h2>One Task, Three Ways</h2>
 
@@ -625,7 +626,7 @@ int main() {
 */</span></div>
 
 <p style="margin-top: 1.2em;">
-  <a href="https://github.com/yajnas07/codepuz/blob/main/ranges/trace_pipeline.cpp" style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.95em;">View source on GitHub &rarr;</a>
+  <a href="https://github.com/yajnas07/codepuz/blob/main/cpp-ranges/trace_pipeline.cpp" style="font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.95em;">View source on GitHub &rarr;</a>
 </p>
 <p class="cp-widget-caption">Compiles with <code class="cp-inline">g++ -std=c++20 trace_pipeline.cpp</code>. Tested on GCC 11 and later.</p>
 
