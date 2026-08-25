@@ -1,0 +1,40 @@
+C++20 Ranges: 20 Algorithms Visualized Step by Step
+
+Say goodbye to begin() and end() — C++20 Ranges let you write cleaner, safer algorithm code in a single line.
+
+In this video, we visualize 20 range algorithms from the C++20 standard library, each one animated step by step with narration:
+
+⏱️ Timestamps
+00:00 Introduction – What are Ranges?
+00:51 ranges::sort – Sort a container
+01:37 ranges::find – Find an element
+02:26 ranges::count_if – Count matching elements
+03:18 ranges::transform – Transform elements
+04:02 ranges::copy_if – Copy matching elements
+04:39 ranges::all_of / any_of / none_of – Boolean predicates
+05:38 ranges::min / max – Find extremes
+06:41 ranges::reverse – Reverse a range
+07:15 ranges::unique – Remove consecutive duplicates
+07:58 ranges::remove_if – Remove matching elements
+08:41 ranges::fill – Fill with a value
+09:15 ranges::generate – Generate values
+10:03 ranges::replace_if – Replace matching elements
+10:47 ranges::partition – Partition a range
+11:36 ranges::is_sorted – Check if sorted
+12:32 ranges::binary_search – Binary search
+13:23 ranges::nth_element – Partial sort
+14:18 ranges + strings – Algorithms with strings
+14:55 Projections – Sort by a member
+16:55 Views | Pipeline – Lazy range adaptors
+
+🔧 Topics covered:
+• Ranges vs traditional iterator-based algorithms
+• Projections and custom comparators
+• Lazy views and pipe operator pipelines
+• Real-world use cases with strings and structs
+
+Built with Manim (Python animation engine).
+
+📌 Like & Subscribe for more C++ visualizations!
+
+#cpp #cpp20 #ranges #algorithms #programming #tutorial #animation
