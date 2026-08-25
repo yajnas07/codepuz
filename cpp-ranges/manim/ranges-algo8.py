@@ -216,6 +216,9 @@ class RangesNthElement(VoiceoverScene):
 
         # ---- show the guarantees ----
         with self.voiceover(LINES["nth_result"]) as tracker:
+            # Clear index labels and nth marker to make room
+            self.play(FadeOut(nth_label), FadeOut(idx_grp), run_time=0.3)
+
             # Highlight nth element
             self.play(
                 arr[4][0].animate.set_stroke(GOLD, width=4),

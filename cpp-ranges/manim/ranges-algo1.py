@@ -724,7 +724,7 @@ class RangesTransform(VoiceoverScene):
         with self.voiceover(LINES["transform_note"]) as tracker:
             note = Text("* output must be pre-sized", font="monospace",
                         color=ORANGE, font_size=18)
-            note.next_to(arr_out, DOWN, buff=0.6)
+            note.next_to(arr_out, DOWN, buff=0.2)
 
             old_code = make_code(
                 "// old way\n"

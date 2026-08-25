@@ -479,7 +479,7 @@ class RangesBinarySearch(VoiceoverScene):
                 table.add(VGroup(row_l, row_r).arrange(RIGHT, buff=0.6))
             table.arrange(DOWN, buff=0.4).move_to(ORIGIN)
 
-            note = Text("⚠ range must be sorted — O(log n)",
+            note = Text("* range must be sorted — O(log n)",
                         font="monospace", color=ORANGE, font_size=15)
             note.next_to(table, DOWN, buff=0.6)
 
